@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     embedding_dim: int = 1536
 
     # ── 벡터 DB (pgvector) ──────────────────────────────
-    pg_dsn: str = "postgresql://filing:filing@localhost:5432/filing_agent"
+    pg_dsn: str = "postgresql://filing:filing@localhost:5433/filing_agent"
 
 
 @lru_cache

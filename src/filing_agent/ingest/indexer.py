@@ -8,9 +8,12 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from urllib.parse import urlparse
+
 import numpy as np
-import psycopg2
-from pgvector.psycopg2 import register_vector
+import psycopg
+from pgvector.psycopg import register_vector
 
 from filing_agent.config import Settings
 from filing_agent.ingest.chunker import Chunk
@@ -34,18 +37,35 @@ CREATE INDEX IF NOT EXISTS filing_chunks_emb_idx
 """
 
 
-def _conn(settings: Settings):
-    conn = psycopg2.connect(settings.pg_dsn)
-    register_vector(conn)
-    return conn
+@contextmanager
+def _conn(settings: Settings, *, with_vector: bool = True):
+    p = urlparse(settings.pg_dsn)
+    conn = psycopg.connect(
+        host=p.hostname,
+        port=p.port or 5432,
+        dbname=(p.path or "").lstrip("/"),
+        user=p.username,
+        password=p.password,
+        application_name="filing_agent",
+    )
+    if with_vector:
+        register_vector(conn)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def setup_table(settings: Settings) -> None:
     """테이블과 HNSW 인덱스를 생성한다(멱등)."""
     ddl = _DDL.format(dim=settings.embedding_dim)
-    with _conn(settings) as conn, conn.cursor() as cur:
-        cur.execute(ddl)
+    with _conn(settings, with_vector=False) as conn:
+        with conn.cursor() as cur:
+            cur.execute(ddl)
         conn.commit()
+    # 확장이 생성된 후 타입을 등록 (연결을 새로 열어 캐시 무효화)
+    with _conn(settings) as conn:
+        pass
 
 
 def index_chunks(
@@ -58,36 +78,38 @@ def index_chunks(
         return 0
 
     stored = 0
-    with _conn(settings) as conn, conn.cursor() as cur:
-        for i in range(0, len(chunks), batch_size):
-            batch = chunks[i : i + batch_size]
-            vectors = embed([c["content"] for c in batch], settings)
-            for chunk, vec in zip(batch, vectors, strict=True):
-                cur.execute(
-                    """
-                    INSERT INTO filing_chunks
-                        (corp_name, year, source, content, embedding, chunk_idx)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        chunk["corp_name"],
-                        chunk["year"],
-                        chunk["source"],
-                        chunk["content"],
-                        np.array(vec, dtype=np.float32),
-                        chunk["chunk_idx"],
-                    ),
-                )
-                stored += 1
+    with _conn(settings) as conn:
+        with conn.cursor() as cur:
+            for i in range(0, len(chunks), batch_size):
+                batch = chunks[i : i + batch_size]
+                vectors = embed([c["content"] for c in batch], settings)
+                for chunk, vec in zip(batch, vectors, strict=True):
+                    cur.execute(
+                        """
+                        INSERT INTO filing_chunks
+                            (corp_name, year, source, content, embedding, chunk_idx)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            chunk["corp_name"],
+                            chunk["year"],
+                            chunk["source"],
+                            chunk["content"],
+                            np.array(vec, dtype=np.float32),
+                            chunk["chunk_idx"],
+                        ),
+                    )
+                    stored += 1
         conn.commit()
     return stored
 
 
 def clear_corp_year(corp_name: str, year: int, settings: Settings) -> None:
     """재인덱싱 전 기존 청크를 삭제한다."""
-    with _conn(settings) as conn, conn.cursor() as cur:
-        cur.execute(
-            "DELETE FROM filing_chunks WHERE corp_name = %s AND year = %s",
-            (corp_name, year),
-        )
+    with _conn(settings) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM filing_chunks WHERE corp_name = %s AND year = %s",
+                (corp_name, year),
+            )
         conn.commit()

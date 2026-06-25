@@ -14,19 +14,18 @@ from __future__ import annotations
 
 import io
 import time
+import warnings
 import zipfile
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
-
-import warnings
 
 import httpx
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
-from filing_agent.ingest.facts import DartApiError
+from filing_agent.ingest.facts import DartApiError  # noqa: E402
 
 _BASE_URL = "https://opendart.fss.or.kr/api"
 _REQUEST_DELAY_SEC = 0.15

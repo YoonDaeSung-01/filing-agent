@@ -39,7 +39,7 @@ def main() -> None:
             corp_code_map[company] = code
             print(f"  {company}: {code}")
         else:
-            print(f"  {company}: corp_code 없음 — 건너뜀")
+            print(f"  {company}: corp_code 없음 -건너뜀")
 
     print(f"\n[2/4] 재무 수치 수집 ({year}년, 계정 {len(TARGET_ACCOUNTS)}개)...")
     for company, corp_code in corp_code_map.items():
@@ -64,7 +64,7 @@ def main() -> None:
                 status = f"{fact['value']:,}원 ({fact['fs_div']})" if fact else "없음"
                 print(f"  {company} {account}: {status}")
         except DartApiError as e:
-            print(f"  {company}: DART 오류 — {e}")
+            print(f"  {company}: DART 오류 -{e}")
 
     print("\n[3/4] 사업보고서 서술 텍스트 수집...")
     filing_texts: dict[str, str] = {}
@@ -74,7 +74,7 @@ def main() -> None:
             filing_texts[company] = text
             print(f"  {company}: {len(text):,}자 수집")
         else:
-            print(f"  {company}: 수집 실패 — 건너뜀")
+            print(f"  {company}: 수집 실패 -건너뜀")
 
     if not filing_texts:
         print("수집된 서술 텍스트가 없습니다. 종료.")

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from typing import TypedDict
+from urllib.parse import urlparse
 
 import numpy as np
-import psycopg2
-from pgvector.psycopg2 import register_vector
+import psycopg
+from pgvector.psycopg import register_vector
 
 from filing_agent.config import Settings
 from filing_agent.llm.client import embed
@@ -31,7 +32,15 @@ def search(
     """질문과 코사인 유사도가 높은 청크 top_k 개를 반환한다."""
     query_vec = np.array(embed([query], settings)[0], dtype=np.float32)
 
-    conn = psycopg2.connect(settings.pg_dsn)
+    p = urlparse(settings.pg_dsn)
+    conn = psycopg.connect(
+        host=p.hostname,
+        port=p.port or 5432,
+        dbname=(p.path or "").lstrip("/"),
+        user=p.username,
+        password=p.password,
+        application_name="filing_agent",
+    )
     register_vector(conn)
     try:
         with conn.cursor() as cur:
