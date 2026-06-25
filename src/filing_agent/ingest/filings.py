@@ -19,8 +19,12 @@ from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
+import warnings
+
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 from filing_agent.ingest.facts import DartApiError
 
