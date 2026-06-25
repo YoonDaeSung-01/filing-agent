@@ -20,5 +20,7 @@ data/vectordb/
 .pytest_cache/
 .ruff_cache/
 
-# Claude Code 로컬(머신별) 설정
-.claude/settings.local.json
+# Claude Code / 내부 문서 — 로컬 전용
+.claude/
+CLAUDE.md
+docs/plan.md
