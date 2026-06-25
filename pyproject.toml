@@ -1,0 +1,38 @@
+[project]
+name = "filing-agent"
+version = "0.1.0"
+description = "DART(한국 전자공시) 기반 재무 질의응답 어시스턴트 — 공시 사실 추출 도구"
+readme = "README.md"
+authors = [
+    { name = "YoonDaeSung-01", email = "daesung_yoon59@naver.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.138.0",
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.14.2",
+    "python-dotenv>=1.2.2",
+    "uvicorn[standard]>=0.49.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.18,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.15.19",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F: pyflakes+pycodestyle, I: isort, UP: pyupgrade, B: bugbear
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

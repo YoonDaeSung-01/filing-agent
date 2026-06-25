@@ -1,0 +1,24 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets — 절대 커밋 금지
+.env
+
+# 생성/캐시 데이터 (런타임에 재생성됨). tests/fixtures/ 는 포함되어야 하므로 무시하지 않음.
+data/raw/
+data/vectordb/
+
+# 도구 캐시
+.pytest_cache/
+.ruff_cache/
+
+# Claude Code 로컬(머신별) 설정
+.claude/settings.local.json
