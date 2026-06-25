@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     # ── 벡터 DB (pgvector) ──────────────────────────────
     pg_dsn: str = "postgresql://filing:filing@localhost:5433/filing_agent"
 
+    # ── 검색·리랭킹 (Phase 2) ───────────────────────────
+    # 후보를 넉넉히 가져와(retrieve_top_n) 리랭커로 재정렬 후 final_top_k 만 LLM 에 전달.
+    retrieve_top_n: int = 20     # 벡터/BM25 각각 가져올 후보 수
+    final_top_k: int = 5         # 리랭킹 후 LLM 에 넘길 청크 수
+    hybrid_enabled: bool = True  # 벡터 + BM25 RRF 융합 사용 여부
+    rrf_k: int = 60              # RRF 상수(랭크 융합 평활화)
+    rerank_enabled: bool = True  # cross-encoder 리랭킹 사용 여부
+    rerank_model: str = "BAAI/bge-reranker-v2-m3"
+
 
 @lru_cache
 def get_settings() -> Settings:

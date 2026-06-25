@@ -94,6 +94,11 @@ def main() -> None:
         total += stored
         print(f"    {stored}개 저장 완료")
 
+    # 재인덱싱 후 메모리 BM25 인덱스 무효화(같은 프로세스에서 검색 시 반영).
+    from filing_agent.retrieval.retriever import reset_bm25_cache
+
+    reset_bm25_cache()
+
     print(f"\n완료! 총 {total}개 청크 저장됨.")
     print("이제 POST /ask 로 질의할 수 있습니다.")
 
