@@ -34,3 +34,26 @@ def test_chunk_overlap_produces_extra_chunks() -> None:
         text, corp_name="A", year=2024, source="s", chunk_size=200, overlap=50
     )
     assert len(with_overlap) > len(no_overlap)
+
+
+def test_chunk_respects_sentence_boundaries() -> None:
+    # 문장이 chunk_size 안에 들어가면 중간에서 잘리지 않고 통째로 보존된다.
+    text = "삼성전자는 반도체를 만든다. 디스플레이도 만든다. 가전도 만든다."
+    chunks = chunk_text(
+        text, corp_name="삼성전자", year=2024, source="s", chunk_size=200, overlap=0
+    )
+    assert len(chunks) == 1
+    # 모든 문장이 한 청크에 온전히 포함된다
+    assert "반도체를 만든다." in chunks[0]["content"]
+    assert "가전도 만든다." in chunks[0]["content"]
+
+
+def test_chunk_packs_paragraphs_under_size() -> None:
+    # 짧은 문단 여러 개를 chunk_size 까지 묶되, 각 청크는 chunk_size 를 넘지 않는다.
+    paras = "\n\n".join(f"문단{i} " + "가" * 80 for i in range(6))
+    chunks = chunk_text(
+        paras, corp_name="A", year=2024, source="s", chunk_size=200, overlap=20
+    )
+    assert len(chunks) >= 2
+    for c in chunks:
+        assert len(c["content"]) <= 200
