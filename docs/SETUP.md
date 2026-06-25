@@ -48,7 +48,7 @@ git clone https://github.com/YoonDaeSung-01/filing-agent.git
 cd filing-agent
 uv sync                # pyproject.toml 기준 가상환경·의존성 일괄 설치
 ```
-> ⚠️ **무거운 의존성 주의:** 리랭커(FlagEmbedding)가 **torch 등 ~2GB**를 받는다.
+> ⚠️ **무거운 의존성 주의:** 리랭커(sentence-transformers)가 **torch 등 ~2GB**를 받는다.
 > 네트워크에 따라 `uv sync`가 수 분 걸릴 수 있다. 정상이다.
 
 ---
