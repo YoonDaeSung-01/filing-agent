@@ -69,9 +69,13 @@ LLM_API_KEY=sk-...                 # OpenAI 키 (임베딩+LLM 둘 다 사용)
 
 ## 3. pgvector 띄우기 (Docker)
 ```powershell
-docker compose up -d           # pgvector 컨테이너 백그라운드 실행
+docker compose up -d pgvector  # ⚠️ 서비스명 지정 — pgvector만 띄운다
 docker ps                      # STATUS가 (healthy)인지 확인
 ```
+
+> ⚠️ **`pgvector`를 꼭 붙인다 (Phase 6에서 바뀐 점):** `docker compose up -d`만 치면 이제 앱 컨테이너(`app`)까지
+> 빌드한다(torch 포함 ~2~3GB, 수 분 소요). 로컬에서 `uv run`으로 개발할 땐 DB만 필요하므로
+> **`docker compose up -d pgvector`**로 DB만 띄운다. (앱까지 컨테이너로 통째로 돌리는 법은 9장 참고)
 
 > ⚠️ **포트 5432 충돌 주의 (집 노트북에서 겪은 문제):**
 > Windows에 PostgreSQL이 따로 깔려 있으면(`postgresql-x64-16` 같은 서비스) 5432를 선점한다.
@@ -140,10 +144,30 @@ git clone https://github.com/YoonDaeSung-01/filing-agent.git
 cd filing-agent
 uv sync
 Copy-Item .env.example .env       # → DART_API_KEY, LLM_API_KEY 채우기
-docker compose up -d              # pgvector (포트 5433)
+docker compose up -d pgvector     # pgvector만 (포트 5433) — 서비스명 꼭 붙인다
 uv run python scripts/ingest_all.py
 uv run uvicorn filing_agent.api.main:app --reload --port 8001
 ```
 
+> 키만 빠르게 검증하려면(데이터·DB 없이): `uv sync` 후 `uv run pytest` — 키 없이 102개 통과한다.
+
+---
+
+## 9. (선택) 앱까지 컨테이너로 통째로 실행 — Phase 6
+
+DB만이 아니라 앱(FastAPI)까지 Docker로 띄우려면:
+```powershell
+docker compose up --build         # pgvector + app 함께. 첫 빌드는 torch 포함이라 수 분
+```
+- `app` 컨테이너 안에서는 DB를 `pgvector:5432`(서비스명)로 접근한다 — compose가 자동 설정.
+- `http://localhost:8000/health` 가 `{"status":"ok"}` 면 정상.
+- ⚠️ 이미지가 크다(~2~3GB). 평소 개발은 8장 방식(`uv run` + DB만 Docker)이 더 빠르다.
+
+### (선택) 관측 — Langfuse
+`.env`에 `LANGFUSE_PUBLIC_KEY`·`LANGFUSE_SECRET_KEY`를 넣으면 질의 전체 트레이스가
+[cloud.langfuse.com](https://cloud.langfuse.com)에 기록된다. **키가 없으면 자동 비활성**(앱은 정상 동작).
+
+---
+
 > 이 문서는 환경이 바뀌거나 새 의존성이 추가되면 갱신한다.
-> 진행 상황·트러블슈팅 이력은 `docs/phase1_report.md`도 함께 참고.
+> 단계별 설계·진행 이력은 `docs/phase*_design.md`, 최신 스냅샷은 `docs/진행사항_*.md` 참고.
