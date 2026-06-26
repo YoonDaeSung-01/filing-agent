@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     agent_max_steps: int = 6          # 도구 호출 최대 스텝(예산)
     agent_budget_tokens: int = 8000   # (Phase 4에서 실제 강제)
 
+    # ── 하네스 (Phase 4) ────────────────────────────────
+    agent_max_verify_attempts: int = 2   # 검증 실패 시 재시도 상한(tool 예산과 분리)
+    agent_max_question_chars: int = 2000  # 입력 가드: 질문 길이 제한
+
 
 @lru_cache
 def get_settings() -> Settings:
