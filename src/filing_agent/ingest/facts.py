@@ -99,6 +99,51 @@ def extract_account(
     return None
 
 
+def extract_change(
+    payload: Mapping[str, Any],
+    *,
+    company: str,
+    account_nm: str,
+    year_to: int,
+) -> tuple[FinancialFact, FinancialFact] | None:
+    """단일 보고서 페이로드에서 당기(thstrm_amount)·전기(frmtrm_amount)를 꺼내 (from, to) 쌍 반환.
+
+    연결(CFS) 우선, 없으면 별도(OFS). 어느 쪽도 없으면 None.
+    """
+    ensure_status_ok(payload)
+    rows: Sequence[Mapping[str, Any]] = payload.get("list", []) or []
+
+    def _try_fs(fs_div: FsDiv) -> tuple[FinancialFact, FinancialFact] | None:
+        for row in rows:
+            if row.get("account_nm") != account_nm or row.get("fs_div") != fs_div:
+                continue
+            v_to = _parse_amount(row.get("thstrm_amount"))
+            v_from = _parse_amount(row.get("frmtrm_amount"))
+            if v_to is None or v_from is None:
+                return None
+            src = _build_source(row, fs_div)
+            fact_from = FinancialFact(
+                company=company,
+                account=account_nm,
+                year=year_to - 1,
+                value=v_from,
+                fs_div=fs_div,
+                source=src,
+            )
+            fact_to = FinancialFact(
+                company=company,
+                account=account_nm,
+                year=year_to,
+                value=v_to,
+                fs_div=fs_div,
+                source=src,
+            )
+            return fact_from, fact_to
+        return None
+
+    return _try_fs("CFS") or _try_fs("OFS")
+
+
 def build_revenue_fact(
     payload: Mapping[str, Any],
     *,

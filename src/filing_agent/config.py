@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     rerank_enabled: bool = True  # cross-encoder 리랭킹 사용 여부
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
 
+    # ── 에이전트 (Phase 3) ──────────────────────────────
+    agent_max_steps: int = 6          # 도구 호출 최대 스텝(예산)
+    agent_budget_tokens: int = 8000   # (Phase 4에서 실제 강제)
+
 
 @lru_cache
 def get_settings() -> Settings:

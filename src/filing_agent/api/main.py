@@ -2,7 +2,7 @@
 
 - GET  /health : 헬스체크 (키 불필요)
 - GET  /ask    : 재무 수치 템플릿 답변 (Phase 0 걷는 해골, DART 키 필요)
-- POST /ask    : RAG 기반 공시 질의응답 (Phase 1, LLM 키 + pgvector 필요)
+- POST /ask    : LangGraph 에이전트 기반 공시 질의응답 (Phase 3)
 
 실행: uv run uvicorn filing_agent.api.main:app --reload
 """
@@ -15,8 +15,6 @@ from pydantic import BaseModel
 from filing_agent.config import get_settings
 from filing_agent.ingest import dart_client
 from filing_agent.ingest.facts import DartApiError, build_revenue_fact
-from filing_agent.llm.client import ask as ask_llm
-from filing_agent.retrieval.retriever import search
 
 app = FastAPI(
     title="filing-agent",
@@ -80,41 +78,40 @@ def ask_revenue(company: str, year: int) -> dict[str, Any]:
     }
 
 
-# ── POST /ask (Phase 1 RAG) ───────────────────────────────────────────────────
+# ── POST /ask (Phase 3 에이전트) ─────────────────────────────────────────────
 
 class AskRequest(BaseModel):
     question: str
-    company: str | None = None  # 선택적 필터
-    year: int | None = None     # 선택적 필터
+    company: str | None = None
+    year: int | None = None
 
 
 class AskResponse(BaseModel):
     answer: str
     sources: list[str]
+    tool_log: list[dict] = []  # 도구 호출 과정 노출(디버그·데모용)
 
 
 @app.post("/ask")
-def ask_rag(request: AskRequest) -> AskResponse:
-    """공시 서술 텍스트를 RAG 로 검색해 질문에 답한다."""
-    settings = get_settings()
+def ask_agent(request: AskRequest) -> AskResponse:
+    """LangGraph 에이전트가 도구를 골라 공시 질문에 답한다."""
+    from filing_agent.agent.graph import get_graph
+    from filing_agent.agent.state import AgentState
 
-    chunks = search(
-        request.question,
-        settings,
-        top_k=5,
-        corp_name=request.company,
-        year=request.year,
+    graph = get_graph()
+    initial: AgentState = {
+        "question": request.question,
+        "company": request.company,
+        "year": request.year,
+        "messages": [],
+        "tool_log": [],
+        "steps": 0,
+        "answer": None,
+        "sources": [],
+    }
+    final = graph.invoke(initial)
+    return AskResponse(
+        answer=final.get("answer") or "",
+        sources=final.get("sources") or [],
+        tool_log=final.get("tool_log") or [],
     )
-
-    if not chunks:
-        return AskResponse(
-            answer=(
-                    "공시 자료에서 관련 내용을 찾을 수 없습니다. "
-                    "먼저 ingest_all.py 로 데이터를 수집해 주세요."
-                ),
-            sources=[],
-        )
-
-    answer = ask_llm(request.question, list(chunks), settings)
-    sources = list(dict.fromkeys(c["source"] for c in chunks))  # 순서 보존 dedup
-    return AskResponse(answer=answer, sources=sources)
