@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     agent_max_verify_attempts: int = 2   # 검증 실패 시 재시도 상한(tool 예산과 분리)
     agent_max_question_chars: int = 2000  # 입력 가드: 질문 길이 제한
 
+    # ── 관측 (Phase 6, 선택) ────────────────────────────
+    # 키가 없으면 트레이싱은 no-op(앱·테스트는 그대로 동작). 비밀값은 .env 에서만.
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"  # 클라우드 무료 티어 기본값
+
 
 @lru_cache
 def get_settings() -> Settings:

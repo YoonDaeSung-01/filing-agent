@@ -17,8 +17,10 @@ from filing_agent.config import get_settings
 from filing_agent.ingest import dart_client
 from filing_agent.ingest.facts import DartApiError, build_revenue_fact
 from filing_agent.logging_config import configure_logging
+from filing_agent.observability import configure_observability, get_langfuse_callbacks
 
 configure_logging()
+configure_observability()  # 키 있을 때만 Langfuse 트레이싱(없으면 no-op)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -121,7 +123,8 @@ def ask_agent(request: AskRequest) -> AskResponse:
         "sources": [],
     }
     try:
-        final = graph.invoke(initial)
+        # 키 있으면 Langfuse 핸들러로 전체 그래프를 트레이싱(없으면 빈 리스트)
+        final = graph.invoke(initial, config={"callbacks": get_langfuse_callbacks()})
     except Exception:
         logger.exception("에이전트 실행 실패: question=%r", request.question)
         return AskResponse(

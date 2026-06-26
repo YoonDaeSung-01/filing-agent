@@ -1,0 +1,19 @@
+# 빌드 컨텍스트 축소 — 이미지에 들어가면 안 되거나 불필요한 것 제외.
+.venv
+.git
+.github
+data/
+docs/
+tests/
+.env
+.env.example
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[oc]
+*.egg-info
+build/
+dist/
+wheels/
+.claude/
+CLAUDE.md

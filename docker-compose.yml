@@ -15,5 +15,17 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      # 컨테이너 내부에서 DB는 서비스명(pgvector:5432)으로 접근(localhost 아님).
+      PG_DSN: postgresql://filing:filing@pgvector:5432/filing_agent
+    depends_on:
+      pgvector:
+        condition: service_healthy
+
 volumes:
   pgdata:

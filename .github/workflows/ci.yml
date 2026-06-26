@@ -1,0 +1,31 @@
+name: CI
+
+# 푸시·PR 마다 린트와 테스트를 자동 실행한다.
+# 키·DB·모델이 필요 없다(Phase 1~5 가 모든 외부 호출을 픽스처·모킹으로 분리).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true   # uv 캐시 재사용(torch 등 무거운 의존성 재다운로드 완화)
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        run: uv run ruff check
+
+      - name: Test (pytest)
+        # 결정론 회귀(채점 로직 + 모킹 도구 슬라이스)가 pytest 에 포함됨 → 별도 eval 스텝 불필요.
+        run: uv run pytest
