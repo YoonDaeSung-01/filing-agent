@@ -126,3 +126,23 @@ class TestToolBudget:
             graph = G.build_graph()
             final = graph.invoke(_initial("아무 질문"))
         assert "확정된 답을 찾지 못했습니다" in final["answer"]
+
+
+class TestFinalizeFallback:
+    def test_structured_output_failure_does_not_crash(self) -> None:
+        """finalize 의 structured output 이 예외를 던져도 그래프가 크래시하지 않는다."""
+
+        class BoomFinalizer:
+            def invoke(self, messages):  # noqa: ANN001
+                raise ValueError("스키마 파싱 실패")
+
+        tool_llm = FakeToolLLM([_ai(content="마지막 응답 텍스트 (출처: 사업보고서)")])
+        with (
+            patch.object(G, "_build_llm", return_value=tool_llm),
+            patch.object(G, "_build_finalizer", return_value=BoomFinalizer()),
+        ):
+            graph = G.build_graph()
+            final = graph.invoke(_initial("주요 위험은?"))
+        # 폴백: 마지막 응답 텍스트가 draft 로 쓰여 정상 종료(크래시 없음)
+        assert final["answer"]  # 빈 응답이 아니어야 함
+        assert "오류" not in final["answer"] or "확정된 답" in final["answer"]

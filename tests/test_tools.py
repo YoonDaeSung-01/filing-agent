@@ -15,6 +15,7 @@ from filing_agent.agent.tools import (
     CANONICAL_ACCOUNTS,
     _canonical,
     compute_change,
+    doc_search,
     financial_lookup,
 )
 
@@ -119,3 +120,20 @@ class TestComputeChange:
     def test_unknown_account(self) -> None:
         result = self._invoke("삼성전자", "없는계정", 2023, 2024, CFS_PAYLOAD)
         assert result["found"] is False
+
+
+# ── doc_search (retriever.search 위임 검증) ──────────────────────────────────
+class TestDocSearch:
+    def test_delegates_to_search_and_maps_fields(self) -> None:
+        fake_chunks = [
+            {"content": "주요 위험은 환율", "source": "삼성전자 사업보고서 2024",
+             "corp_name": "삼성전자", "year": 2024, "score": 0.9},
+        ]
+        # retriever.search 를 모킹(실제 DB·임베딩 불필요)
+        with patch("filing_agent.retrieval.retriever.search", return_value=fake_chunks):
+            result = doc_search.invoke(
+                {"query": "사업 위험", "company": "삼성전자", "year": 2024}
+            )
+        assert result == [
+            {"content": "주요 위험은 환율", "source": "삼성전자 사업보고서 2024", "score": 0.9}
+        ]

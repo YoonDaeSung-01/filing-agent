@@ -7,6 +7,7 @@
 실행: uv run uvicorn filing_agent.api.main:app --reload
 """
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI
@@ -15,6 +16,10 @@ from pydantic import BaseModel
 from filing_agent.config import get_settings
 from filing_agent.ingest import dart_client
 from filing_agent.ingest.facts import DartApiError, build_revenue_fact
+from filing_agent.logging_config import configure_logging
+
+configure_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="filing-agent",
@@ -115,7 +120,15 @@ def ask_agent(request: AskRequest) -> AskResponse:
         "answer": None,
         "sources": [],
     }
-    final = graph.invoke(initial)
+    try:
+        final = graph.invoke(initial)
+    except Exception:
+        logger.exception("에이전트 실행 실패: question=%r", request.question)
+        return AskResponse(
+            answer="요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+            sources=[],
+            tool_log=[],
+        )
     return AskResponse(
         answer=final.get("answer") or "",
         sources=final.get("sources") or [],

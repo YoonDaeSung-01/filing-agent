@@ -82,23 +82,9 @@ def doc_search(
     수치(매출/이익 등 재무 숫자)는 financial_lookup 을 쓸 것.
     반환: [{content: str, source: str, score: float}, ...]
     """
-    from filing_agent.retrieval.retriever import HybridRetriever
+    from filing_agent.retrieval.retriever import search
     cfg = _settings()
-    retriever = HybridRetriever(
-        pg_dsn=cfg.pg_dsn,
-        embedding_model=cfg.embedding_model,
-        retrieve_top_n=cfg.retrieve_top_n,
-        final_top_k=cfg.final_top_k,
-        hybrid_enabled=cfg.hybrid_enabled,
-        rrf_k=cfg.rrf_k,
-        rerank_enabled=cfg.rerank_enabled,
-        rerank_model=cfg.rerank_model,
-    )
-    chunks = retriever.search(
-        query=query,
-        corp_name=company,
-        year=year,
-    )
+    chunks = search(query, cfg, corp_name=company, year=year)
     return [
         {"content": c["content"], "source": c.get("source", ""), "score": c.get("score", 0.0)}
         for c in chunks

@@ -6,11 +6,49 @@
 
 from __future__ import annotations
 
+import logging
+import time
+from collections.abc import Callable
 from typing import Any
 
 import litellm
 
 from filing_agent.config import Settings
+
+logger = logging.getLogger(__name__)
+
+# 일시적 오류(레이트리밋·타임아웃·일시 장애)는 지수 백오프로 재시도한다.
+_MAX_RETRIES = 3
+_BASE_DELAY_SEC = 1.0
+_RETRYABLE_ERRORS = tuple(
+    e
+    for e in (
+        getattr(litellm, "RateLimitError", None),
+        getattr(litellm, "Timeout", None),
+        getattr(litellm, "APIConnectionError", None),
+        getattr(litellm, "ServiceUnavailableError", None),
+        getattr(litellm, "InternalServerError", None),
+    )
+    if isinstance(e, type)
+)
+
+def _with_retry[T](fn: Callable[[], T], *, what: str) -> T:
+    """일시적 오류에 한해 지수 백오프로 재시도한다(비일시적 오류는 즉시 전파)."""
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_RETRIES):
+        try:
+            return fn()
+        except _RETRYABLE_ERRORS as exc:  # type: ignore[misc]
+            last_exc = exc
+            delay = _BASE_DELAY_SEC * (2**attempt)
+            logger.warning(
+                "%s 일시 오류(%s) — %.1fs 후 재시도 (%d/%d)",
+                what, type(exc).__name__, delay, attempt + 1, _MAX_RETRIES,
+            )
+            time.sleep(delay)
+    assert last_exc is not None
+    logger.error("%s 재시도 소진 — 마지막 오류: %s", what, last_exc)
+    raise last_exc
 
 _SYSTEM_PROMPT = (
     "당신은 한국 기업 전자공시(DART) 자료를 기반으로 사실을 추출하는 어시스턴트입니다.\n"
@@ -40,23 +78,29 @@ def ask(
     context = _build_context(context_chunks)
     user_content = f"공시 자료:\n\n{context}\n\n질문: {question}"
 
-    response = litellm.completion(
-        model=settings.llm_model,
-        messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": user_content},
-        ],
-        api_key=settings.llm_api_key,
-        max_tokens=1024,
+    response = _with_retry(
+        lambda: litellm.completion(
+            model=settings.llm_model,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
+            api_key=settings.llm_api_key,
+            max_tokens=1024,
+        ),
+        what="LLM completion",
     )
     return response.choices[0].message.content or ""
 
 
 def embed(texts: list[str], settings: Settings) -> list[list[float]]:
-    """텍스트 리스트를 임베딩 벡터 리스트로 변환한다."""
-    response = litellm.embedding(
-        model=settings.embedding_model,
-        input=texts,
-        api_key=settings.llm_api_key,
+    """텍스트 리스트를 임베딩 벡터 리스트로 변환한다(일시 오류는 백오프 재시도)."""
+    response = _with_retry(
+        lambda: litellm.embedding(
+            model=settings.embedding_model,
+            input=texts,
+            api_key=settings.llm_api_key,
+        ),
+        what="embedding",
     )
     return [item["embedding"] for item in response.data]

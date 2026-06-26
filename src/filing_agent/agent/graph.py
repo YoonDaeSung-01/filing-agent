@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -27,6 +28,8 @@ from filing_agent.agent.tools import TOOLS
 from filing_agent.config import get_settings
 from filing_agent.harness import guardrails
 from filing_agent.harness.verifier import verify as verify_answer
+
+logger = logging.getLogger(__name__)
 
 # 수치 도구(성공 시 facts 에 적재)
 _FACT_TOOLS = {"financial_lookup", "compute_change"}
@@ -39,7 +42,9 @@ _SYSTEM_PROMPT = (
     "직접 계산하거나 기억에서 숫자를 가져오지 마세요.\n"
     "③ 서술·전략·위험 등 비정형 질문은 doc_search를 사용하세요.\n"
     "④ 자료에 없으면 '확인할 수 없습니다'라고 답하세요.\n"
-    "⑤ 투자 매수·매도 조언은 하지 않습니다."
+    "⑤ 투자 매수·매도 조언은 하지 않습니다.\n"
+    "⑥ 질문에 회사명·연도가 불명확하면 숫자를 추측하지 말고, "
+    "어떤 회사·연도를 묻는지 사용자에게 되물으세요."
 )
 
 
@@ -118,6 +123,7 @@ def _node_call_tools(state: AgentState) -> dict:
             try:
                 result, ok = fn.invoke(args), True
             except Exception as exc:  # noqa: BLE001
+                logger.warning("도구 %s 실패: %s", name, exc)
                 result, ok = {"error": str(exc)}, False
 
         tool_log.append({"tool": name, "args": args, "ok": ok})
@@ -143,12 +149,19 @@ def _node_call_tools(state: AgentState) -> dict:
 
 
 def _node_finalize(state: AgentState) -> dict:
-    """구조화 출력으로 {answer, figures} 생성."""
-    finalizer = _build_finalizer()
-    result: dict = finalizer.invoke(list(state["messages"]))
-    answer = result.get("answer", "") if isinstance(result, dict) else ""
-    figures = result.get("figures", []) if isinstance(result, dict) else []
-    return {"draft": answer, "figures": list(figures)}
+    """구조화 출력으로 {answer, figures} 생성. 스키마 파싱 실패 시 폴백(크래시 방지)."""
+    try:
+        finalizer = _build_finalizer()
+        result = finalizer.invoke(list(state["messages"]))
+        answer = result.get("answer", "") if isinstance(result, dict) else ""
+        figures = result.get("figures", []) if isinstance(result, dict) else []
+        return {"draft": answer, "figures": list(figures)}
+    except Exception as exc:  # noqa: BLE001
+        # 스키마 파싱 실패 → 마지막 응답 텍스트로 폴백(figures 비움 → verify 가 처리)
+        logger.warning("finalize 구조화 출력 실패(%s) — 폴백 사용", type(exc).__name__)
+        last = state["messages"][-1] if state["messages"] else None
+        fallback = getattr(last, "content", "") or "답변을 생성하지 못했습니다."
+        return {"draft": fallback, "figures": []}
 
 
 def _node_verify(state: AgentState) -> dict:
