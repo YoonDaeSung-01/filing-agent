@@ -1,0 +1,4 @@
+{"id":"qs001","type":"lookup","question":"삼성전자가 공시한 2024년 매출액은?","company":"삼성전자","account":"매출액","year":2024,"expected_value":300870903000000,"expected_tools":["financial_lookup"],"relevant_company":"삼성전자","relevant_year":2024}
+{"id":"qs002","type":"lookup","question":"삼성전자 2024년 영업이익은?","company":"삼성전자","account":"영업이익","year":2024,"expected_value":32725961000000,"expected_tools":["financial_lookup"],"relevant_company":"삼성전자","relevant_year":2024}
+{"id":"qs003","type":"calc","question":"삼성전자의 2023년 대비 2024년 매출액 증감은?","company":"삼성전자","account":"매출액","year_from":2023,"year_to":2024,"expected_value":41935409000000,"expected_tools":["compute_change"],"relevant_company":"삼성전자","relevant_year":2024}
+{"id":"qs004","type":"edge","question":"OFS 폴백 테스트용 매출액 조회","company":"테스트회사","account":"매출액","year":2023,"expected_value":105000000000,"expected_tools":["financial_lookup"],"relevant_company":"테스트회사","relevant_year":2023,"note":"CFS 없는 기업: OFS만 있을 때 폴백 경로 검증"}
