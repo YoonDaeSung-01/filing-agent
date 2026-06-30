@@ -54,7 +54,8 @@ cp .env.example .env          # PowerShell: Copy-Item .env.example .env
 docker compose up -d pgvector
 
 # 4) 데이터 수집 + 인제스트(임베딩 → pgvector)
-uv run python scripts/ingest_all.py
+uv run python scripts/ingest_all.py              # 기본 10개 기업
+# 특정 기업 추가: --companies 카카오 네이버 --year 2024
 
 # 5) 서버 실행
 uv run uvicorn filing_agent.api.main:app --reload
@@ -161,8 +162,11 @@ uv run pytest         # 테스트 — 키·DB·모델 없이 통과
 ## 한계 (솔직한 회고)
 
 - **투자 조언이 아니라 사실 추출 도구**다. 매수·매도 추천에는 답하지 않는다.
-- **스코프를 의도적으로 좁혔다**: 제조 대형주 10개 · 계정 5개(매출액·영업이익·당기순이익·자산총계·부채총계).
-  목적이 데이터 정제가 아니라 AI 에이전트 증명이라, DART 파싱 늪을 피하려 범위를 잘랐다.
+- **기본 인제스트는 제조 대형주 10개**이지만 `--companies` 인자로 DART 등록 모든 상장사로 확장 가능.
+  `financial_lookup`은 corp_code 동적 조회로 인제스트 없이도 모든 상장사 수치를 반환하며,
+  `doc_search`는 pgvector에 인제스트된 기업만 검색된다.
+  지원 계정: 매출액·영업이익·법인세차감전순이익·당기순이익·총포괄손익·자산총계·부채총계·자본총계(8개).
+  현금흐름표 계정(영업활동현금흐름 등)은 별도 DART API 엔드포인트 필요 — 현재 미지원.
 - **평가 N이 작다(15건)**: 통계적 유의성이 아니라 방향성. 대신 엣지케이스(연결/별도, 미지원계정, 스코프 밖 기업)를
   의도적으로 배치해 질적 평가에 집중했다. scope_accuracy=0.000은 공개된 갭 — 입력 가드레일 미구현.
 - **다기업 합산(combine)은 동일 계정·연도로 제한**: `compute_sum`이 여러 회사의 같은 계정·같은 연도를

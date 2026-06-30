@@ -1,16 +1,24 @@
-"""Phase 1 전체 인제스트 파이프라인.
+"""전체 인제스트 파이프라인 — 기업·연도를 CLI 인자로 지정 가능.
 
-실행: uv run python scripts/ingest_all.py
+기본 실행 (constants.py 기본 기업 목록):
+    uv run python scripts/ingest_all.py
+
+특정 기업 추가 인제스트:
+    uv run python scripts/ingest_all.py --companies 카카오 네이버 --year 2024
+
+기업 목록 전체 교체 + 연도 변경:
+    uv run python scripts/ingest_all.py --companies 삼성전자 SK하이닉스 --year 2023
 
 흐름:
-1. corpCode.xml 로 10개 기업 corp_code 확보
+1. corpCode.xml 로 기업 corp_code 확보
 2. fnlttSinglAcnt.json 으로 재무 수치 수집 → data/raw/facts/
 3. document.xml 로 사업보고서 서술 텍스트 수집 → data/raw/filings/
-4. 서술 텍스트 청킹 → OpenAI 임베딩 → pgvector 저장
+4. 서술 텍스트 청킹 → 임베딩 → pgvector 저장
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -27,19 +35,45 @@ from filing_agent.ingest.indexer import clear_corp_year, index_chunks, setup_tab
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="DART 사업보고서 인제스트 파이프라인")
+    parser.add_argument(
+        "--companies", nargs="+", default=None,
+        metavar="COMPANY",
+        help=(
+            "인제스트할 기업 이름 목록 (DART corpCode.xml 등록명과 정확히 일치). "
+            "생략 시 constants.TARGET_COMPANIES(기본 10개) 사용."
+        ),
+    )
+    parser.add_argument(
+        "--year", type=int, default=TARGET_YEAR,
+        help=f"수집 연도 (기본: {TARGET_YEAR})",
+    )
+    parser.add_argument(
+        "--no-clear", action="store_true",
+        help="pgvector의 기존 데이터를 지우지 않고 추가(기본: 해당 기업·연도 덮어쓰기)",
+    )
+    args = parser.parse_args()
+
+    companies: list[str] = args.companies if args.companies else TARGET_COMPANIES
+    year: int = args.year
+    skip_clear: bool = args.no_clear
+
     settings = get_settings()
     api_key = settings.dart_api_key
-    year = TARGET_YEAR
 
-    print("[1/4] corp_code 매핑 로드 중...")
+    print(f"[1/4] corp_code 매핑 로드 중 ({len(companies)}개 기업)...")
     corp_code_map: dict[str, str] = {}
-    for company in TARGET_COMPANIES:
+    for company in companies:
         code = dart_client.resolve_corp_code(api_key, company)
         if code:
             corp_code_map[company] = code
             print(f"  {company}: {code}")
         else:
-            print(f"  {company}: corp_code 없음 -건너뜀")
+            print(f"  {company}: corp_code 없음 — 건너뜀 (DART 등록명 확인 필요)")
+
+    if not corp_code_map:
+        print("유효한 기업이 없습니다. 종료.")
+        return
 
     print(f"\n[2/4] 재무 수치 수집 ({year}년, 계정 {len(TARGET_ACCOUNTS)}개)...")
     for company, corp_code in corp_code_map.items():
@@ -64,7 +98,7 @@ def main() -> None:
                 status = f"{fact['value']:,}원 ({fact['fs_div']})" if fact else "없음"
                 print(f"  {company} {account}: {status}")
         except DartApiError as e:
-            print(f"  {company}: DART 오류 -{e}")
+            print(f"  {company}: DART 오류 — {e}")
 
     print("\n[3/4] 사업보고서 서술 텍스트 수집...")
     filing_texts: dict[str, str] = {}
@@ -74,14 +108,13 @@ def main() -> None:
             filing_texts[company] = text
             print(f"  {company}: {len(text):,}자 수집")
         else:
-            print(f"  {company}: 수집 실패 -건너뜀")
+            print(f"  {company}: 수집 실패 — 건너뜀")
 
     if not filing_texts:
         print("수집된 서술 텍스트가 없습니다. 종료.")
         return
 
     print("\n[4/4] 임베딩 + pgvector 저장...")
-    print("  pgvector 테이블 초기화...")
     setup_table(settings)
 
     total = 0
@@ -89,7 +122,8 @@ def main() -> None:
         source = f"{company} 사업보고서 {year}"
         chunks = chunk_text(text, corp_name=company, year=year, source=source)
         print(f"  {company}: {len(chunks)}개 청크 → 임베딩 중...")
-        clear_corp_year(company, year, settings)
+        if not skip_clear:
+            clear_corp_year(company, year, settings)
         stored = index_chunks(chunks, settings)
         total += stored
         print(f"    {stored}개 저장 완료")
@@ -99,7 +133,9 @@ def main() -> None:
 
     reset_bm25_cache()
 
-    print(f"\n완료! 총 {total}개 청크 저장됨.")
+    ingested = list(filing_texts.keys())
+    summary = ", ".join(ingested)
+    print(f"\n완료! 총 {total}개 청크 저장됨 ({year}년 · {len(ingested)}개 기업: {summary})")
     print("이제 POST /ask 로 질의할 수 있습니다.")
 
 
