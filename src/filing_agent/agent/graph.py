@@ -32,7 +32,7 @@ from filing_agent.harness.verifier import verify as verify_answer
 logger = logging.getLogger(__name__)
 
 # 수치 도구(성공 시 facts 에 적재)
-_FACT_TOOLS = {"financial_lookup", "compute_change"}
+_FACT_TOOLS = {"financial_lookup", "compute_change", "compute_sum"}
 
 _SYSTEM_PROMPT = (
     "당신은 DART 전자공시 기반 재무 사실 추출 어시스턴트입니다.\n"
@@ -40,6 +40,8 @@ _SYSTEM_PROMPT = (
     "① 제공된 공시 자료 내에서만 답하고, 출처(회사·연도·보고서)를 항상 표기하세요.\n"
     "② 재무 수치는 반드시 financial_lookup 또는 compute_change 도구를 사용하세요. "
     "직접 계산하거나 기억에서 숫자를 가져오지 마세요.\n"
+    "②-1 여러 회사의 수치를 합산할 때(예: 'A사와 B사의 매출 합계')는 compute_sum 에 "
+    "회사 목록을 한 번에 넘기세요. 직접 더하지 마세요.\n"
     "③ 서술·전략·위험 등 비정형 질문은 doc_search를 사용하세요.\n"
     "④ 자료에 없으면 '확인할 수 없습니다'라고 답하세요.\n"
     "⑤ 투자 매수·매도 조언은 하지 않습니다.\n"
@@ -238,7 +240,15 @@ def _route_after_verify(state: AgentState) -> str:
 
 # ── 헬퍼 ──────────────────────────────────────────────────────────────────────
 def _sources_from_facts(facts: list[dict]) -> list[str]:
-    srcs = [f.get("source", "") for f in facts if f.get("found") is not False]
+    srcs: list[str] = []
+    for f in facts:
+        if f.get("found") is False:
+            continue
+        src = f.get("source")
+        if isinstance(src, list):  # compute_sum 은 회사별 출처 리스트
+            srcs.extend(src)
+        elif src:
+            srcs.append(src)
     return list(dict.fromkeys(filter(None, srcs)))
 
 
@@ -257,7 +267,10 @@ def _summarize_facts(facts: list[dict]) -> str:
         if f.get("found") is False:
             continue
         acc = f.get("account", "?")
-        if "value" in f:
+        if "total" in f:  # compute_sum
+            companies = "+".join(f.get("companies") or [])
+            parts.append(f"{companies} {f.get('year')}년 {acc} 합계 {f['total']:,}원")
+        elif "value" in f:
             parts.append(f"{acc} {f.get('year')}년 {f['value']:,}원")
         elif "delta" in f:
             parts.append(f"{acc} {f.get('year_from')}→{f.get('year_to')} 증감 {f['delta']:,}원")

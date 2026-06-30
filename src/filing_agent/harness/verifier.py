@@ -14,8 +14,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-# facts 에서 수치로 간주할 키들(financial_lookup + compute_change 커버)
-_VALUE_KEYS = ("value", "value_from", "value_to", "delta")
+# facts 에서 수치로 간주할 키들(financial_lookup·compute_change·compute_sum 커버)
+_VALUE_KEYS = ("value", "value_from", "value_to", "delta", "total")
 
 
 def collect_fact_values(facts: Sequence[Mapping]) -> set[int]:
@@ -28,6 +28,11 @@ def collect_fact_values(facts: Sequence[Mapping]) -> set[int]:
             v = fact.get(key)
             if isinstance(v, int):
                 values.add(v)
+        # compute_sum 의 회사별 개별 값(values: [{company, value}, ...])
+        for item in fact.get("values") or []:
+            iv = item.get("value") if isinstance(item, Mapping) else None
+            if isinstance(iv, int):
+                values.add(iv)
     return values
 
 

@@ -15,6 +15,7 @@ from filing_agent.agent.tools import (
     CANONICAL_ACCOUNTS,
     _canonical,
     compute_change,
+    compute_sum,
     doc_search,
     financial_lookup,
 )
@@ -119,6 +120,45 @@ class TestComputeChange:
 
     def test_unknown_account(self) -> None:
         result = self._invoke("삼성전자", "없는계정", 2023, 2024, CFS_PAYLOAD)
+        assert result["found"] is False
+
+
+# ── compute_sum (모킹) ───────────────────────────────────────────────────────
+class TestComputeSum:
+    def _invoke(self, companies: list[str], account: str, year: int, payload: dict) -> dict:
+        with (
+            patch("filing_agent.agent.tools._get_corp_code", return_value="00126380"),
+            patch("filing_agent.agent.tools.fetch_single_account", return_value=payload),
+        ):
+            return compute_sum.invoke(
+                {"companies": companies, "account": account, "year": year}
+            )
+
+    def test_two_company_sum(self) -> None:
+        result = self._invoke(["삼성전자", "SK하이닉스"], "매출액", 2024, CFS_PAYLOAD)
+        assert result.get("found") is not False
+        # 모킹이 두 회사에 같은 페이로드를 주므로 total = 2 × 매출액
+        assert result["total"] == 2 * 300_870_903_000_000
+        assert len(result["values"]) == 2
+        assert isinstance(result["source"], list) and len(result["source"]) == 2
+
+    def test_single_company_rejected(self) -> None:
+        result = self._invoke(["삼성전자"], "매출액", 2024, CFS_PAYLOAD)
+        assert result["found"] is False
+        assert "2곳 이상" in result["reason"]
+
+    def test_unknown_account(self) -> None:
+        result = self._invoke(["삼성전자", "SK하이닉스"], "없는계정", 2024, CFS_PAYLOAD)
+        assert result["found"] is False
+
+    def test_missing_company_data_fails(self) -> None:
+        with (
+            patch("filing_agent.agent.tools._get_corp_code", return_value=None),
+            patch("filing_agent.agent.tools.fetch_single_account", return_value=CFS_PAYLOAD),
+        ):
+            result = compute_sum.invoke(
+                {"companies": ["없는회사", "삼성전자"], "account": "매출액", "year": 2024}
+            )
         assert result["found"] is False
 
 

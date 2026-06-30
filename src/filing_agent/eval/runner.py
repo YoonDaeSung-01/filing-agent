@@ -22,10 +22,16 @@ def _predicted_value(item_type: str, facts: list[dict]) -> int | None:
         deltas = [f["delta"] for f in facts if isinstance(f.get("delta"), int)]
         return deltas[0] if deltas else None
 
+    if item_type == "combine":
+        # compute_sum 의 total 우선(도구가 결정론 합산). 없으면 개별 value 합산 폴백.
+        totals = [f["total"] for f in facts if isinstance(f.get("total"), int)]
+        if totals:
+            return totals[0]
+        values = [f["value"] for f in facts if isinstance(f.get("value"), int)]
+        return sum(values) if values else None
+
     values = [f["value"] for f in facts if isinstance(f.get("value"), int)]
-    if not values:
-        return None
-    return sum(values) if item_type == "combine" else values[0]
+    return values[0] if values else None
 
 
 def _build_initial(item: dict[str, Any]) -> dict[str, Any]:

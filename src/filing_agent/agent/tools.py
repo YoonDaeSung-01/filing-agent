@@ -92,6 +92,30 @@ def doc_search(
 
 
 # ---------------------------------------------------------------------------
+# 단일 조회 헬퍼 — 한 회사·계정·연도의 fact dict 또는 None(compute_sum 재사용)
+# ---------------------------------------------------------------------------
+def _lookup_fact(company: str, canonical: str, year: int, cfg: Any) -> dict | None:
+    """표준계정 1개를 조회해 fact dict 를 반환한다. 미발견/오류면 None."""
+    corp_code = _get_corp_code(company, cfg.dart_api_key)
+    if corp_code is None:
+        return None
+    try:
+        payload = fetch_single_account(
+            cfg.dart_api_key,
+            corp_code=corp_code,
+            bsns_year=year,
+            reprt_code=cfg.dart_report_code,
+        )
+    except Exception:
+        return None
+    for synonym in _synonyms_for(canonical):
+        fact = build_revenue_fact(payload, company=company, account_nm=synonym, year=year)
+        if fact is not None:
+            return dict(fact)
+    return None
+
+
+# ---------------------------------------------------------------------------
 # 도구 2: financial_lookup — 재무 수치 구조화 조회
 # ---------------------------------------------------------------------------
 @tool
@@ -241,4 +265,48 @@ def compute_change(
     }
 
 
-TOOLS = [doc_search, financial_lookup, compute_change]
+# ---------------------------------------------------------------------------
+# 도구 4: compute_sum — 다기업 합산 (도구 내부에서 처리)
+# ---------------------------------------------------------------------------
+@tool
+def compute_sum(companies: list[str], account: str, year: int) -> dict:
+    """여러 회사의 같은 계정·같은 연도 수치를 도구 내부에서 합산해 반환한다.
+    "A사와 B사의 2024년 매출 합산" 같은 다기업 질의에 사용한다.
+    LLM 은 회사 목록·계정·연도만 전달하고 합산은 도구가 결정론적으로 한다.
+    반환: {companies, account, year, values:[{company,value}], total(원), fs_div, source:[...]}
+          | {found: False, reason}
+    """
+    cfg = _settings()
+    canonical = _canonical(account)
+    if canonical is None:
+        return {
+            "found": False,
+            "reason": f"지원하지 않는 계정: {account!r}. 허용: {CANONICAL_ACCOUNTS}",
+        }
+    if not companies or len(companies) < 2:
+        return {"found": False, "reason": "합산하려면 회사를 2곳 이상 지정하세요."}
+
+    breakdown: list[dict] = []
+    sources: list[str] = []
+    fs_divs: set[str] = set()
+    for company in companies:
+        fact = _lookup_fact(company, canonical, year, cfg)
+        if fact is None:
+            return {"found": False, "reason": f"{company} {year}년 {canonical} 데이터 없음"}
+        breakdown.append({"company": company, "value": fact["value"]})
+        sources.append(fact["source"])
+        fs_divs.add(fact["fs_div"])
+
+    total = sum(b["value"] for b in breakdown)
+    return {
+        "companies": list(companies),
+        "account": canonical,
+        "year": year,
+        "values": breakdown,
+        "total": total,
+        "fs_div": next(iter(fs_divs)) if len(fs_divs) == 1 else "MIXED",
+        "source": sources,
+    }
+
+
+TOOLS = [doc_search, financial_lookup, compute_change, compute_sum]

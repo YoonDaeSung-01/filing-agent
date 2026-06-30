@@ -31,6 +31,20 @@ CHANGE_FACT = {
 }
 
 
+SUM_FACT = {
+    "companies": ["삼성전자", "SK하이닉스"],
+    "account": "매출액",
+    "year": 2024,
+    "values": [
+        {"company": "삼성전자", "value": 300_870_903_000_000},
+        {"company": "SK하이닉스", "value": 66_193_000_000_000},
+    ],
+    "total": 367_063_903_000_000,
+    "fs_div": "CFS",
+    "source": ["OpenDART (...삼성)", "OpenDART (...SK)"],
+}
+
+
 class TestCollectFactValues:
     def test_lookup_value(self) -> None:
         assert 300_870_903_000_000 in collect_fact_values([LOOKUP_FACT])
@@ -40,6 +54,12 @@ class TestCollectFactValues:
         assert 258_935_494_000_000 in vals
         assert 300_870_903_000_000 in vals
         assert 41_935_409_000_000 in vals
+
+    def test_sum_total_and_individuals(self) -> None:
+        vals = collect_fact_values([SUM_FACT])
+        assert 367_063_903_000_000 in vals  # total
+        assert 300_870_903_000_000 in vals  # 개별
+        assert 66_193_000_000_000 in vals   # 개별
 
     def test_skips_not_found(self) -> None:
         assert collect_fact_values([{"found": False, "reason": "x"}]) == set()
@@ -107,6 +127,12 @@ class TestVerify:
     def test_change_value_passes(self) -> None:
         figures = [{"account": "매출액", "year": 2024, "value": 41_935_409_000_000, "source": "x"}]
         ok, _ = verify(figures, [CHANGE_FACT], "증감액은 ...원입니다 (출처: 사업보고서)")
+        assert ok is True
+
+    def test_sum_total_passes(self) -> None:
+        figures = [{"account": "매출액", "year": 2024,
+                    "value": 367_063_903_000_000, "source": "x"}]
+        ok, _ = verify(figures, [SUM_FACT], "합계는 ...원입니다 (출처: 공시)")
         assert ok is True
 
     def test_narrative_with_source_passes(self) -> None:
