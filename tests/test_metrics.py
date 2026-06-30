@@ -9,6 +9,7 @@ from filing_agent.eval.metrics import (
     mrr,
     number_accuracy,
     routing_accuracy,
+    scope_accuracy,
 )
 
 # ── 샘플 골든셋 ──────────────────────────────────────────────────────────────
@@ -166,6 +167,7 @@ class TestAggregate:
         result = aggregate(preds, GOLD)
         assert result["number_accuracy"] == 1.0
         assert result["routing_accuracy"] == 1.0
+        assert "scope_accuracy" in result
         assert "n_by_type" in result
         assert "hit@5" not in result  # retrievals 없으면 미포함
 
@@ -197,6 +199,56 @@ class TestAggregate:
         result = aggregate(preds, GOLD, retrievals=retrievals, k=5)
         assert result["hit@5"] == 0.0
         assert result["mrr"] == 0.0
+
+
+_GOLD_WITH_NEGATIVE = GOLD + [
+    {
+        "id": "q_neg1", "type": "negative",
+        "expected_value": None,
+        "expected_tools": [],
+        "relevant_company": None, "relevant_year": None,
+    },
+    {
+        "id": "q_neg2", "type": "negative",
+        "expected_value": None,
+        "expected_tools": [],
+        "relevant_company": None, "relevant_year": None,
+    },
+]
+
+
+# ── scope_accuracy ────────────────────────────────────────────────────────────
+class TestScopeAccuracy:
+    def test_no_negative_items_returns_zero(self) -> None:
+        preds = [{"id": "q1", "predicted_tools": ["financial_lookup"]}]
+        assert scope_accuracy(preds, GOLD) == 0.0
+
+    def test_refused_correctly(self) -> None:
+        preds = [{"id": "q_neg1", "predicted_tools": []}]
+        assert scope_accuracy(preds, _GOLD_WITH_NEGATIVE) == 1.0
+
+    def test_called_tool_when_should_refuse(self) -> None:
+        preds = [{"id": "q_neg1", "predicted_tools": ["financial_lookup"]}]
+        assert scope_accuracy(preds, _GOLD_WITH_NEGATIVE) == 0.0
+
+    def test_partial_refusal(self) -> None:
+        preds = [
+            {"id": "q_neg1", "predicted_tools": []},          # 올바른 거부
+            {"id": "q_neg2", "predicted_tools": ["financial_lookup"]},  # 잘못된 도구 호출
+        ]
+        assert scope_accuracy(preds, _GOLD_WITH_NEGATIVE) == pytest.approx(0.5)
+
+    def test_negative_with_expected_tools_not_counted(self) -> None:
+        # expected_tools가 있는 negative 항목은 routing_accuracy 대상 → scope_accuracy 제외
+        gold_special = [
+            {"id": "qx", "type": "negative", "expected_tools": ["financial_lookup"],
+             "expected_value": None, "relevant_company": None, "relevant_year": None},
+        ]
+        preds = [{"id": "qx", "predicted_tools": ["financial_lookup"]}]
+        assert scope_accuracy(preds, gold_special) == 0.0  # 해당 항목 없음 → 0.0
+
+    def test_empty_preds(self) -> None:
+        assert scope_accuracy([], _GOLD_WITH_NEGATIVE) == 0.0
 
 
 class TestJudgeAggregate:

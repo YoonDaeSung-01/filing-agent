@@ -52,12 +52,16 @@ def main() -> None:
     scores = aggregate(preds, gold, k=args.k)
 
     print("\n=== 평가 점수표 ===")
-    print(f"  숫자 정답률  (number_accuracy) : {scores['number_accuracy']:.3f}")
-    print(f"  라우팅 정확도(routing_accuracy): {scores['routing_accuracy']:.3f}")
+    print(f"  숫자 정답률  (number_accuracy)     : {scores['number_accuracy']:.3f}")
+    print(f"  라우팅 정확도(routing_accuracy)    : {scores['routing_accuracy']:.3f}")
+    sc = scores.get("scope_accuracy", 0.0)
+    n_negative = scores.get("n_by_type", {}).get("negative", 0)
+    scope_note = " ← 스코프 거부 미구현(알려진 갭)" if n_negative > 0 and sc < 1.0 else ""
+    print(f"  스코프 거부  (scope_accuracy)      : {sc:.3f}{scope_note}")
     if f"hit@{args.k}" in scores:
-        print(f"  Hit@{args.k}                    : {scores[f'hit@{args.k}']:.3f}")
-        print(f"  MRR                            : {scores['mrr']:.3f}")
-    print(f"  유형별 N     (n_by_type)       : {scores['n_by_type']}")
+        print(f"  Hit@{args.k}                          : {scores[f'hit@{args.k}']:.3f}")
+        print(f"  MRR                                : {scores['mrr']:.3f}")
+    print(f"  유형별 N     (n_by_type)           : {scores['n_by_type']}")
     print()
     print("* N이 작아 통계적 유의성 아님 — 개선 방향성 확인 용도.")
 

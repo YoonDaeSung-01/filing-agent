@@ -62,6 +62,27 @@ def mrr(retrieved: list[tuple[str, int]], relevant: tuple[str, int]) -> float:
     return 0.0
 
 
+def scope_accuracy(preds: list[dict], gold: list[dict]) -> float:
+    """type='negative'이고 expected_tools=[]인 항목에서 도구를 호출하지 않은 비율.
+
+    에이전트가 스코프 밖 요청을 올바르게 거부(도구 미호출)하는지 측정한다.
+    predicted_tools가 비어 있으면 정답(거부), 비어 있지 않으면 오답.
+    negative 항목이 없으면 0.0을 반환한다.
+    """
+    gold_map = {g["id"]: g for g in gold}
+    total = correct = 0
+    for pred in preds:
+        g = gold_map.get(pred["id"])
+        if g is None or g.get("type") != "negative":
+            continue
+        if g.get("expected_tools"):
+            continue  # expected_tools가 있는 negative는 routing_accuracy 대상
+        total += 1
+        if not (pred.get("predicted_tools") or []):
+            correct += 1
+    return correct / total if total > 0 else 0.0
+
+
 def judge_aggregate(judgements: list[dict]) -> dict[str, Any]:
     """LLM-judge 결과를 집계한다(보조 지표 — 비결정론, 로컬 전용).
 
@@ -90,6 +111,7 @@ def aggregate(
     result: dict[str, Any] = {
         "number_accuracy": number_accuracy(preds, gold),
         "routing_accuracy": routing_accuracy(preds, gold),
+        "scope_accuracy": scope_accuracy(preds, gold),
     }
 
     if retrievals:
