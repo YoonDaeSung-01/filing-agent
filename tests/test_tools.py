@@ -42,6 +42,37 @@ class TestCanonical:
         assert _canonical("영업수익") == "매출액"
         assert _canonical("영업이익(손실)") == "영업이익"
 
+    # ── 신규 계정 정규화 ──────────────────────────────────────────────────
+    def test_자본총계_exact(self) -> None:
+        assert _canonical("자본총계") == "자본총계"
+
+    def test_자본총계_synonym_자기자본(self) -> None:
+        assert _canonical("자기자본") == "자본총계"
+
+    def test_자본총계_synonym_총자본(self) -> None:
+        assert _canonical("총자본") == "자본총계"
+
+    def test_법인세차감전순이익_no_space(self) -> None:
+        assert _canonical("법인세차감전순이익") == "법인세차감전순이익"
+
+    def test_법인세차감전순이익_dart_format_with_space(self) -> None:
+        # DART가 실제로 반환하는 형식 (공백 포함) — 동의어 집합에 포함돼야 함
+        assert _canonical("법인세차감전 순이익") == "법인세차감전순이익"
+
+    def test_법인세차감전순이익_synonym_세전이익(self) -> None:
+        assert _canonical("세전이익") == "법인세차감전순이익"
+
+    def test_총포괄손익_exact(self) -> None:
+        assert _canonical("총포괄손익") == "총포괄손익"
+
+    def test_총포괄손익_synonym_포괄이익(self) -> None:
+        assert _canonical("포괄이익") == "총포괄손익"
+
+    def test_영업활동현금흐름_not_supported(self) -> None:
+        # CF 계정은 fnlttSinglAcnt 미지원 → None 반환
+        assert _canonical("영업활동현금흐름") is None
+        assert _canonical("투자활동현금흐름") is None
+
     def test_unknown_returns_none(self) -> None:
         assert _canonical("존재하지않는계정") is None
 
@@ -86,6 +117,38 @@ class TestFinancialLookup:
         result = self._invoke("테스트회사", "매출액", 2024, OFS_PAYLOAD)
         assert result.get("found") is not False
         assert result["fs_div"] == "OFS"
+
+    # ── 신규 계정 조회 ────────────────────────────────────────────────────
+    def test_자본총계_lookup(self) -> None:
+        result = self._invoke("삼성전자", "자본총계", 2024, CFS_PAYLOAD)
+        assert result.get("found") is not False
+        assert result["value"] == 402_192_070_000_000
+        assert result["fs_div"] == "CFS"
+
+    def test_자기자본_synonym_lookup(self) -> None:
+        result = self._invoke("삼성전자", "자기자본", 2024, CFS_PAYLOAD)
+        assert result.get("found") is not False
+        assert result["value"] == 402_192_070_000_000
+
+    def test_법인세차감전순이익_lookup(self) -> None:
+        result = self._invoke("삼성전자", "법인세차감전순이익", 2024, CFS_PAYLOAD)
+        assert result.get("found") is not False
+        assert result["value"] == 37_529_734_000_000
+
+    def test_세전이익_synonym_lookup(self) -> None:
+        result = self._invoke("삼성전자", "세전이익", 2024, CFS_PAYLOAD)
+        assert result.get("found") is not False
+        assert result["value"] == 37_529_734_000_000
+
+    def test_총포괄손익_lookup(self) -> None:
+        result = self._invoke("삼성전자", "총포괄손익", 2024, CFS_PAYLOAD)
+        assert result.get("found") is not False
+        assert result["value"] == 51_296_338_000_000
+
+    def test_영업활동현금흐름_not_supported(self) -> None:
+        result = self._invoke("삼성전자", "영업활동현금흐름", 2024, CFS_PAYLOAD)
+        assert result["found"] is False
+        assert "지원하지 않는 계정" in result["reason"]
 
 
 # ── compute_change (모킹) ────────────────────────────────────────────────────
