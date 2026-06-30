@@ -85,3 +85,45 @@ def run_goldset(graph: Any, items: list[dict[str, Any]]) -> list[dict[str, Any]]
         })
         logger.info("항목 %s 완료: %s", item_id, preds[-1].get("predicted_value"))
     return preds
+
+
+# judge 로 잴 유형 — 순수 서술(routing)만. 하이브리드 수치는 결정론(verifier)으로 검증되고,
+# 수치+서술이 섞인 답변은 faithfulness 판정이 교란되므로 제외한다(보조 지표의 신뢰도 유지).
+_NARRATIVE_TYPES = ("routing",)
+
+
+def judge_predictions(
+    preds: list[dict[str, Any]],
+    items: list[dict[str, Any]],
+    *,
+    types: tuple[str, ...] = _NARRATIVE_TYPES,
+) -> list[dict[str, Any]]:
+    """서술형·하이브리드 답변을 LLM-judge로 채점한다(로컬 전용, 키·DB 필요).
+
+    검색 컨텍스트는 retriever 를 직접 호출해 만든다(에이전트 우회 — Hit@k 와 같은 경로).
+    Returns: [{id, faithfulness, relevance, reason}, ...]
+    """
+    from filing_agent.config import get_settings
+    from filing_agent.eval.judge import judge_answer
+    from filing_agent.retrieval.retriever import search
+
+    cfg = get_settings()
+    gold = {g["id"]: g for g in items}
+    judgements: list[dict[str, Any]] = []
+    for pred in preds:
+        g = gold.get(pred["id"])
+        if g is None or g.get("type") not in types:
+            continue
+        try:
+            chunks = search(
+                g["question"], cfg,
+                corp_name=g.get("relevant_company"), year=g.get("relevant_year"),
+            )
+            context = "\n\n".join(c.get("content", "") for c in chunks[:5])
+            verdict = judge_answer(g["question"], pred.get("answer", ""), context=context)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("judge 항목 %s 실패: %s", pred["id"], exc)
+            verdict = {"faithfulness": 0, "relevance": 0, "reason": f"[오류] {exc}"}
+        judgements.append({"id": pred["id"], **verdict})
+        logger.info("judge %s: %s", pred["id"], verdict)
+    return judgements

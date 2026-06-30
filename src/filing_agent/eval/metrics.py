@@ -62,6 +62,19 @@ def mrr(retrieved: list[tuple[str, int]], relevant: tuple[str, int]) -> float:
     return 0.0
 
 
+def judge_aggregate(judgements: list[dict]) -> dict[str, Any]:
+    """LLM-judge 결과를 집계한다(보조 지표 — 비결정론, 로컬 전용).
+
+    Returns: {faithfulness, relevance, n_judged}. 비어 있으면 {}.
+    """
+    if not judgements:
+        return {}
+    n = len(judgements)
+    faith = sum(int(j.get("faithfulness", 0)) for j in judgements) / n
+    rel = sum(int(j.get("relevance", 0)) for j in judgements) / n
+    return {"faithfulness": faith, "relevance": rel, "n_judged": n}
+
+
 def aggregate(
     preds: list[dict],
     gold: list[dict],

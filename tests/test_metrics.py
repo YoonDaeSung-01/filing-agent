@@ -5,6 +5,7 @@ import pytest
 from filing_agent.eval.metrics import (
     aggregate,
     hit_at_k,
+    judge_aggregate,
     mrr,
     number_accuracy,
     routing_accuracy,
@@ -196,3 +197,18 @@ class TestAggregate:
         result = aggregate(preds, GOLD, retrievals=retrievals, k=5)
         assert result["hit@5"] == 0.0
         assert result["mrr"] == 0.0
+
+
+class TestJudgeAggregate:
+    def test_empty_returns_empty(self) -> None:
+        assert judge_aggregate([]) == {}
+
+    def test_averages(self) -> None:
+        judgements = [
+            {"id": "a", "faithfulness": 1, "relevance": 1},
+            {"id": "b", "faithfulness": 0, "relevance": 1},
+        ]
+        result = judge_aggregate(judgements)
+        assert result["faithfulness"] == pytest.approx(0.5)
+        assert result["relevance"] == pytest.approx(1.0)
+        assert result["n_judged"] == 2
