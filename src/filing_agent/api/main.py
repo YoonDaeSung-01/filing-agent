@@ -10,13 +10,14 @@
 import logging
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from filing_agent.config import get_settings
 from filing_agent.ingest import dart_client
 from filing_agent.ingest.facts import DartApiError, build_revenue_fact
+from filing_agent.ingest.stock_client import compute_stock_summary, fetch_stock_ohlc
 from filing_agent.logging_config import configure_logging
 from filing_agent.observability import configure_observability, get_langfuse_callbacks
 
@@ -92,6 +93,93 @@ def ask_revenue(company: str, year: int) -> dict[str, Any]:
             f"(출처: {fact['source']})"
         ),
         "fact": fact,
+    }
+
+
+# ── GET /stock ───────────────────────────────────────────────────────────────
+
+@app.get("/stock")
+def get_stock(
+    company: str,
+    period: int = Query(default=365, ge=30, le=1825),
+) -> dict[str, Any]:
+    """주가 OHLC + 요약 통계. 사실 데이터만. 투자 조언 아님.
+
+    period: 조회 기간(일), 기본 365일(1년). 최소 30일, 최대 1825일(5년).
+    """
+    settings = get_settings()
+    ticker = dart_client.resolve_stock_code(settings.dart_api_key, company)
+    if ticker is None:
+        reason = (
+            f"'{company}'의 종목코드를 찾을 수 없습니다."
+            " 비상장이거나 corpCode.xml에 없는 회사입니다."
+        )
+        return {"found": False, "reason": reason}
+
+    try:
+        rows = fetch_stock_ohlc(ticker, period_days=period)
+        return compute_stock_summary(rows, company=company, ticker=ticker)
+    except Exception as exc:
+        logger.exception("주가 조회 실패: company=%r ticker=%r", company, ticker)
+        return {"found": False, "reason": str(exc)}
+
+
+# ── GET /financial/trend ─────────────────────────────────────────────────────
+
+@app.get("/financial/trend")
+def get_financial_trend(
+    company: str,
+    account: str,
+    years: str = Query(default="2022,2023,2024"),
+) -> dict[str, Any]:
+    """다년도 재무 추이. 프론트 차트 렌더용. 에이전트 미경유 직통.
+
+    years: 콤마 구분 연도 목록 (예: "2022,2023,2024")
+    """
+    from filing_agent.agent.tools import _canonical, _get_corp_code, _synonyms_for
+
+    settings = get_settings()
+
+    canonical = _canonical(account)
+    if canonical is None:
+        return {"found": False, "reason": f"지원하지 않는 계정: {account!r}"}
+
+    try:
+        year_list = [int(y.strip()) for y in years.split(",")]
+    except ValueError:
+        return {"found": False, "reason": f"잘못된 years 형식: {years!r}"}
+
+    corp_code = _get_corp_code(company, settings.dart_api_key)
+    if corp_code is None:
+        return {"found": False, "reason": f"회사를 찾을 수 없음: {company!r}"}
+
+    points: list[dict] = []
+    for year in year_list:
+        try:
+            payload = dart_client.fetch_single_account(
+                settings.dart_api_key,
+                corp_code=corp_code,
+                bsns_year=year,
+                reprt_code=settings.dart_report_code,
+            )
+        except Exception:
+            continue
+
+        found = False
+        for synonym in _synonyms_for(canonical):
+            fact = build_revenue_fact(payload, company=company, account_nm=synonym, year=year)
+            if fact is not None:
+                points.append({"year": year, "value": fact["value"], "fs_div": fact["fs_div"]})
+                found = True
+                break
+        if not found:
+            points.append({"year": year, "value": None, "fs_div": None})
+
+    return {
+        "found": True,
+        "company": company,
+        "account": canonical,
+        "points": points,
     }
 
 

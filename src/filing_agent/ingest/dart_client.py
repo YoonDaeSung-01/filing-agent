@@ -31,6 +31,7 @@ _TIMEOUT_SEC = 30.0
 _DATA_ROOT = Path("data/raw")
 _FACTS_DIR = _DATA_ROOT / "facts"
 _CORP_CODE_CACHE = _DATA_ROOT / "corp_code_map.json"
+_STOCK_CODE_CACHE = _DATA_ROOT / "stock_code_map.json"
 
 
 # ---------------------------------------------------------------------------
@@ -92,16 +93,32 @@ def resolve_corp_code(api_key: str, name: str) -> str | None:
     return _load_corp_code_map(api_key).get(name)
 
 
+def resolve_stock_code(api_key: str, name: str) -> str | None:
+    """회사명을 6자리 종목코드(ticker)로 반환한다. 비상장이면 None."""
+    return _load_stock_code_map(api_key).get(name)
+
+
 def _load_corp_code_map(api_key: str) -> dict[str, str]:
     cached = _read_json_cache(_CORP_CODE_CACHE)
     if cached is not None:
         return cached
-    mapping = _download_corp_code_map(api_key)
-    _write_json_cache(_CORP_CODE_CACHE, mapping)
-    return mapping
+    corp_map, stock_map = _download_both_maps(api_key)
+    _write_json_cache(_CORP_CODE_CACHE, corp_map)
+    _write_json_cache(_STOCK_CODE_CACHE, stock_map)
+    return corp_map
 
 
-def _download_corp_code_map(api_key: str) -> dict[str, str]:
+def _load_stock_code_map(api_key: str) -> dict[str, str]:
+    cached = _read_json_cache(_STOCK_CODE_CACHE)
+    if cached is not None:
+        return cached
+    corp_map, stock_map = _download_both_maps(api_key)
+    _write_json_cache(_CORP_CODE_CACHE, corp_map)
+    _write_json_cache(_STOCK_CODE_CACHE, stock_map)
+    return stock_map
+
+
+def _download_both_maps(api_key: str) -> tuple[dict[str, str], dict[str, str]]:
     time.sleep(_REQUEST_DELAY_SEC)
     resp = httpx.get(
         f"{_BASE_URL}/corpCode.xml", params={"crtfc_key": api_key}, timeout=_TIMEOUT_SEC
@@ -112,7 +129,8 @@ def _download_corp_code_map(api_key: str) -> dict[str, str]:
     # 정상 응답은 zip(매직바이트 'PK'). 키 오류 등은 XML status 본문이 온다.
     if content[:2] != b"PK":
         _raise_from_error_body(content)
-    return _parse_corp_code_xml(_unzip_single(content))
+    xml_bytes = _unzip_single(content)
+    return _parse_corp_code_xml(xml_bytes), _parse_stock_code_xml(xml_bytes)
 
 
 def _unzip_single(content: bytes) -> bytes:
@@ -140,6 +158,18 @@ def _parse_corp_code_xml(xml_bytes: bytes) -> dict[str, str]:
             # 기존이 비상장이고 새 항목이 상장사면 교체
             mapping[corp_name] = corp_code
             listed_names.add(corp_name)
+    return mapping
+
+
+def _parse_stock_code_xml(xml_bytes: bytes) -> dict[str, str]:
+    """corpCode.xml → {회사명: stock_code}. 비상장(stock_code 공백)은 제외."""
+    root = ElementTree.fromstring(xml_bytes)
+    mapping: dict[str, str] = {}
+    for item in root.iter("list"):
+        corp_name = (item.findtext("corp_name") or "").strip()
+        stock_code = (item.findtext("stock_code") or "").strip()
+        if corp_name and stock_code:
+            mapping[corp_name] = stock_code
     return mapping
 
 

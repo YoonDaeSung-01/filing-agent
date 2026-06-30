@@ -10,7 +10,7 @@ import { useQueryHistory } from "@/hooks/useQueryHistory";
 import type { HistoryItem } from "@/hooks/useQueryHistory";
 
 export default function Home() {
-  const { mutate, data, isPending, reset } = useAsk();
+  const { mutate, data, isPending, reset, error } = useAsk();
   const { history, addToHistory, clearHistory } = useQueryHistory();
 
   const [formState, setFormState] = useState({
@@ -68,6 +68,7 @@ export default function Home() {
             <ResultPanel
               response={data ?? null}
               isPending={isPending}
+              error={error}
               onExampleClick={handleExampleClick}
             />
           </div>

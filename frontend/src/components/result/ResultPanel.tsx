@@ -17,12 +17,57 @@ const EXAMPLE_QUESTIONS = [
 interface ResultPanelProps {
   response: AskResponse | null;
   isPending: boolean;
+  error: Error | null;
   onExampleClick: (q: string) => void;
 }
 
-export function ResultPanel({ response, isPending, onExampleClick }: ResultPanelProps) {
+export function ResultPanel({ response, isPending, error, onExampleClick }: ResultPanelProps) {
+  // 로딩 중
+  if (isPending) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+            도구 실행
+          </p>
+          <div className="flex items-center gap-2 px-3 py-2 bg-[#F2F4F6] rounded-xl animate-pulse">
+            <span className="text-sm">⏳</span>
+            <span className="text-sm text-[#6B7280]">에이전트가 도구를 선택하는 중...</span>
+          </div>
+        </div>
+        <AnswerSkeleton />
+      </div>
+    );
+  }
+
+  // API 오류 (백엔드 미실행, 네트워크 오류 등)
+  if (error) {
+    const isNetwork = error.message.includes("fetch") || error.message.includes("연결") || error.message.includes("Failed");
+    return (
+      <div className="bg-[#FFF7ED] border border-[#FED7AA] rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-base">⚠️</span>
+          <span className="text-sm font-semibold text-[#92400E]">
+            {isNetwork ? "백엔드 서버에 연결할 수 없습니다" : "요청 처리 중 오류가 발생했습니다"}
+          </span>
+        </div>
+        {isNetwork && (
+          <p className="text-xs text-[#92400E] leading-relaxed">
+            FastAPI 서버를 먼저 실행해 주세요:<br />
+            <code className="bg-[#FEF3C7] px-1.5 py-0.5 rounded font-mono mt-1 inline-block">
+              uv run uvicorn filing_agent.api.main:app --reload
+            </code>
+          </p>
+        )}
+        {!isNetwork && (
+          <p className="text-xs text-[#92400E]">{error.message}</p>
+        )}
+      </div>
+    );
+  }
+
   // 빈 상태 — 온보딩
-  if (!isPending && !response) {
+  if (!response) {
     return (
       <div className="space-y-3">
         <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
@@ -46,35 +91,17 @@ export function ResultPanel({ response, isPending, onExampleClick }: ResultPanel
     );
   }
 
-  // 로딩
-  if (isPending) {
-    return (
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-            도구 실행
-          </p>
-          <div className="flex items-center gap-2 px-3 py-2 bg-[#F2F4F6] rounded-xl animate-pulse">
-            <span className="text-sm">⏳</span>
-            <span className="text-sm text-[#6B7280]">에이전트가 도구를 선택하는 중...</span>
-          </div>
-        </div>
-        <AnswerSkeleton />
-      </div>
-    );
-  }
-
   // 가드레일 차단
-  if (response!.status === "blocked") {
-    return <GuardrailNotice message={response!.answer} />;
+  if (response.status === "blocked") {
+    return <GuardrailNotice message={response.answer} />;
   }
 
   // 우아한 실패
-  if (response!.status === "failed") {
+  if (response.status === "failed") {
     return (
       <AnswerCard
-        answer={response!.answer}
-        sources={response!.sources}
+        answer={response.answer}
+        sources={response.sources}
         variant="warning"
       />
     );
@@ -89,10 +116,10 @@ export function ResultPanel({ response, isPending, onExampleClick }: ResultPanel
         animate={{ opacity: 1 }}
         className="space-y-4"
       >
-        <ToolTimeline toolLog={response!.tool_log} />
-        <FactCards facts={response!.facts} />
-        <AnswerCard answer={response!.answer} sources={[]} />
-        <SourcePanel sources={response!.sources} />
+        <ToolTimeline toolLog={response.tool_log} />
+        <FactCards facts={response.facts} />
+        <AnswerCard answer={response.answer} sources={[]} />
+        <SourcePanel sources={response.sources} />
       </motion.div>
     </AnimatePresence>
   );

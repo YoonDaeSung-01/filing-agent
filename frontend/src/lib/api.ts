@@ -1,4 +1,4 @@
-import type { AskRequest, AskResponse } from "./types";
+import type { AskRequest, AskResponse, StockResponse, TrendResponse } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -23,4 +23,22 @@ export async function healthCheck(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function fetchStock(company: string, period = 365): Promise<StockResponse> {
+  const params = new URLSearchParams({ company, period: String(period) });
+  const res = await fetch(`${BASE_URL}/stock?${params}`);
+  if (!res.ok) throw new Error(`주가 API 오류: ${res.status}`);
+  return res.json() as Promise<StockResponse>;
+}
+
+export async function fetchFinancialTrend(
+  company: string,
+  account: string,
+  years = "2022,2023,2024",
+): Promise<TrendResponse> {
+  const params = new URLSearchParams({ company, account, years });
+  const res = await fetch(`${BASE_URL}/financial/trend?${params}`);
+  if (!res.ok) throw new Error(`추이 API 오류: ${res.status}`);
+  return res.json() as Promise<TrendResponse>;
 }

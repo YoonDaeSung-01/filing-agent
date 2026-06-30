@@ -66,3 +66,56 @@ export function factKind(f: Fact): FactKind {
   if ("delta" in f) return "change";
   return "lookup";
 }
+
+// ── 주가 데이터 타입 ────────────────────────────────────────────────────────
+
+export interface OHLCPoint {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface StockSummary {
+  found: true;
+  company: string;
+  ticker: string;
+  date: string;
+  close: number;
+  change: number;
+  change_pct: number | null;
+  high_52w: number;
+  low_52w: number;
+  ohlc: OHLCPoint[];
+}
+
+export interface StockError {
+  found: false;
+  reason: string;
+}
+
+export type StockResponse = StockSummary | StockError;
+
+// ── 재무 추이 타입 ──────────────────────────────────────────────────────────
+
+export interface TrendPoint {
+  year: number;
+  value: number | null;
+  fs_div: string | null;
+}
+
+export interface FinancialTrend {
+  found: true;
+  company: string;
+  account: string;
+  points: TrendPoint[];
+}
+
+export interface TrendError {
+  found: false;
+  reason: string;
+}
+
+export type TrendResponse = FinancialTrend | TrendError;
