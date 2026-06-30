@@ -96,6 +96,7 @@ def test_post_ask_surfaces_facts_for_cards(monkeypatch) -> None:
     assert body["facts"][0]["value"] == 300_870_903_000_000
     assert body["tool_log"][0]["tool"] == "financial_lookup"
     assert body["sources"] == ["삼성전자 2024 사업보고서"]
+    assert body["status"] == "ok"            # 정상 경로
 
 
 def test_post_ask_facts_defaults_to_empty_list(monkeypatch) -> None:
@@ -104,6 +105,7 @@ def test_post_ask_facts_defaults_to_empty_list(monkeypatch) -> None:
         "answer": "매수·매도 추천은 제공하지 않습니다.",
         "sources": [],
         "tool_log": [],
+        "status": "blocked",
         # facts 키 자체가 없음 → 응답에서 [] 로 폴백돼야 함
     })
 
@@ -113,3 +115,4 @@ def test_post_ask_facts_defaults_to_empty_list(monkeypatch) -> None:
     body = resp.json()
     assert body["facts"] == []
     assert body["tool_log"] == []
+    assert body["status"] == "blocked"       # 가드레일 차단 → 프론트가 결정론적으로 분기

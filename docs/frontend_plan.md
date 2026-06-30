@@ -123,12 +123,13 @@ interface AskRequest {
   year?: number | null;      // 선택 — 라우팅 힌트
 }
 
-// POST /ask  응답 (facts 추가 후)
+// POST /ask  응답 (facts·status 추가 후)
 interface AskResponse {
   answer: string;            // 사용자에게 보일 산문 답변
   sources: string[];         // 출처 문자열(중복 제거됨). compute_sum 도 평탄화되어 들어옴
   tool_log: ToolLogEntry[];  // 도구 선택 과정(라우팅 투명성)
   facts: Fact[];             // 카드 렌더용 결정론 수치(성공 결과만)
+  status: "ok" | "blocked" | "failed";  // 프론트 상태 분기(결정론) — 문자열 매칭 불필요
 }
 
 interface ToolLogEntry {
@@ -165,9 +166,9 @@ function factKind(f: Fact): "lookup" | "change" | "sum" {
 }
 ```
 
-**가드레일 차단 응답**도 같은 스키마로 온다 — 단 `tool_log:[]`, `facts:[]`, `sources:[]`이고
-`answer`가 거부 안내문이다. 프론트는 `tool_log.length === 0 && facts.length === 0` 이고 답변이
-거부 패턴이면 `GuardrailNotice`로 렌더한다.
+**상태 분기는 `status` 필드로 결정론 처리한다**(거부 메시지 문자열 매칭 같은 휴리스틱 불필요):
+`"blocked"`=가드레일 차단(인젝션·투자조언 선회), `"failed"`=우아한 실패(검증/예산 소진),
+`"ok"`=정상. 백엔드 `graceful_fail`·`input_guard`가 이 값을 세팅해 응답에 그대로 실린다.
 
 ---
 
@@ -287,11 +288,12 @@ frontend/
 ### 결과 상태 분기 (ResultPanel)
 
 ```
-응답 도착 →
-  ├ 가드레일 차단(tool_log·facts·sources 모두 비고 answer가 거부문) → GuardrailNotice
-  ├ facts.length > 0 → ToolTimeline + FactCards(분기) + AnswerCard + SourcePanel
-  ├ facts.length == 0 && sources.length > 0 → ToolTimeline + AnswerCard + SourcePanel (순수 doc_search)
-  └ 그 외(graceful_fail) → AnswerCard(경고 톤) + (있으면)부분 출처
+응답 도착 → switch (status)
+  ├ "blocked" → GuardrailNotice (인젝션/투자조언 선회 — 안전 계층 배지)
+  ├ "failed"  → AnswerCard(주의 톤, 빨강 아님) + (있으면)부분 출처
+  └ "ok" →
+       ├ facts.length > 0 → ToolTimeline + FactCards(분기) + AnswerCard + SourcePanel
+       └ facts.length == 0 → ToolTimeline + AnswerCard + SourcePanel (순수 doc_search)
 ```
 
 ### 카드 상세
@@ -329,6 +331,30 @@ pct_change 가 null 이면(전기=0) "%—"로 표기.
 fs_div 가 "MIXED"면 "연결/별도 혼합" 주석.
 
 ---
+
+## UI/UX 보강 (간단 — 데모 설득력 위주)
+
+큰 기능 추가 없이, 작은 디테일로 "신뢰감·이해도"를 올리는 것만 추린다.
+
+1. **빈 상태 온보딩** — 결과 전 화면에 예시 질문 3개를 카드로(매출액·증감·합산). 무엇을 물어볼 수 있는지
+   즉시 전달 → 첫 클릭까지의 마찰 제거. (QuickQueries 재사용)
+2. **출처를 답변 옆 인라인 칩으로** — 제품 정체성이 "출처와 함께"이므로 Accordion에 숨기지 말고
+   AnswerCard 하단에 `[출처 1] [출처 2]` 칩을 바로 노출(상세는 SourcePanel에서 펼침).
+3. **숫자 복사 버튼** — FinancialCard의 원 단위 정수를 한 번에 복사(실무 사용성). 클릭 시 토스트.
+4. **graceful_fail는 에러색이 아니라 주의색** — `failed`는 빨강이 아닌 노랑/회색 톤. "부분 정보는 유효,
+   질문을 좁히면 됨"을 색으로 전달(좌절감 ↓).
+5. **로딩은 정직하게** — 가짜 단계 진행바 대신 결과 영역 Skeleton 1개. (진짜 단계 표시는 스트리밍 필요 →
+   범위 밖, 아래 백엔드 확장 참고)
+6. **색 외 신호 병행** — 증감은 색(빨강/파랑)만이 아니라 ▲/▼ 화살표를 항상 병기(색각 접근성).
+
+## 백엔드 확장 고려 (적용 1 + 보류 3)
+
+| 항목 | 판단 | 비고 |
+|---|---|---|
+| `status` 필드 노출 | ✅ **적용함** | 프론트 상태 분기를 문자열 매칭 휴리스틱 → 결정론 필드로. `graceful_fail`에 status 세팅 + `AskResponse.status`. 테스트 통과. |
+| `GET /meta`(기업·계정·연도 목록) | 🔸 선택 | 프론트가 `constants.ts`에 8계정·10기업을 하드코딩하면 백엔드와 드리프트. 메타 엔드포인트로 단일 출처화 가능. 지금은 하드코딩으로 시작, 필요 시 추가. |
+| `tool_log[].ms`(도구 소요시간) | 🔸 선택 | 타임라인에 시간 표시용. `_node_call_tools`에서 측정. 데모 디테일, 필수 아님. |
+| SSE 스트리밍(도구 실행 라이브 표시) | ⏸ 보류 | 타임라인을 실시간으로 채우면 임팩트 크지만 LangGraph 스트리밍 + EventSource로 복잡도 급증. "간단" 원칙상 v1 범위 밖. |
 
 ## Toss 디자인 토큰
 

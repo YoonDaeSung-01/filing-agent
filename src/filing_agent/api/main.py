@@ -108,6 +108,7 @@ class AskResponse(BaseModel):
     sources: list[str]
     tool_log: list[dict] = []  # 도구 호출 과정 노출(디버그·데모용)
     facts: list[dict] = []     # 수치 도구의 구조화 결과(프론트 카드 렌더용·성공 결과만)
+    status: str = "ok"         # "ok" | "blocked"(가드레일) | "failed"(우아한 실패) — 프론트 분기용
 
 
 @app.post("/ask")
@@ -143,10 +144,12 @@ def ask_agent(request: AskRequest) -> AskResponse:
             answer="요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
             sources=[],
             tool_log=[],
+            status="failed",
         )
     return AskResponse(
         answer=final.get("answer") or "",
         sources=final.get("sources") or [],
         tool_log=final.get("tool_log") or [],
         facts=final.get("facts") or [],
+        status=final.get("status") or "ok",
     )

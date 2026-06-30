@@ -210,7 +210,8 @@ def _node_graceful_fail(state: AgentState) -> dict:
         f"확인된 부분: {confirmed}. (사유: {reason}) "
         "질문을 회사·연도·계정으로 좁혀 주시면 다시 시도합니다."
     )
-    return {"answer": answer, "sources": _collect_sources(state)}
+    # status="failed" 로 최종 상태를 자기 기술적으로 만든다(blocked/ok 와 구분).
+    return {"answer": answer, "sources": _collect_sources(state), "status": "failed"}
 
 
 # ── 라우팅 ────────────────────────────────────────────────────────────────────
