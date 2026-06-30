@@ -112,6 +112,7 @@ def _node_call_tools(state: AgentState) -> dict:
     tool_messages: list[ToolMessage] = []
     tool_log: list[dict] = list(state.get("tool_log") or [])
     new_facts: list[dict] = []
+    new_doc_sources: list[str] = []
     steps = state.get("steps", 0)
 
     for tc in last_msg.tool_calls:
@@ -134,6 +135,12 @@ def _node_call_tools(state: AgentState) -> dict:
         )
         if is_fact:
             new_facts.append(result)
+        # doc_search 성공 결과의 출처를 누적(서술형 답변 출처 표기)
+        if ok and name == "doc_search" and isinstance(result, list):
+            new_doc_sources.extend(
+                c["source"] for c in result
+                if isinstance(c, dict) and c.get("source")
+            )
         tool_messages.append(
             ToolMessage(content=json.dumps(result, ensure_ascii=False), tool_call_id=call_id)
         )
@@ -145,6 +152,8 @@ def _node_call_tools(state: AgentState) -> dict:
     }
     if new_facts:
         out["facts"] = new_facts  # operator.add 리듀서로 누적
+    if new_doc_sources:
+        out["doc_sources"] = new_doc_sources  # operator.add 리듀서로 누적
     return out
 
 
@@ -183,8 +192,10 @@ def _node_verify(state: AgentState) -> dict:
 def _node_output_guard(state: AgentState) -> dict:
     draft = state.get("draft") or ""
     figures = state.get("figures") or []
-    result = guardrails.check_output(draft, has_figures=bool(figures))
-    sources = _sources_from_facts(state.get("facts") or [])
+    sources = _collect_sources(state)
+    result = guardrails.check_output(
+        draft, has_figures=bool(figures), has_sources=bool(sources)
+    )
     return {"answer": result["answer"], "sources": sources}
 
 
@@ -197,7 +208,7 @@ def _node_graceful_fail(state: AgentState) -> dict:
         f"확인된 부분: {confirmed}. (사유: {reason}) "
         "질문을 회사·연도·계정으로 좁혀 주시면 다시 시도합니다."
     )
-    return {"answer": answer, "sources": _sources_from_facts(facts)}
+    return {"answer": answer, "sources": _collect_sources(state)}
 
 
 # ── 라우팅 ────────────────────────────────────────────────────────────────────
@@ -228,6 +239,13 @@ def _route_after_verify(state: AgentState) -> str:
 # ── 헬퍼 ──────────────────────────────────────────────────────────────────────
 def _sources_from_facts(facts: list[dict]) -> list[str]:
     srcs = [f.get("source", "") for f in facts if f.get("found") is not False]
+    return list(dict.fromkeys(filter(None, srcs)))
+
+
+def _collect_sources(state: AgentState) -> list[str]:
+    """수치(facts) 출처 + 서술(doc_search) 출처를 합쳐 중복 제거(등장 순서 유지)."""
+    srcs = _sources_from_facts(state.get("facts") or [])
+    srcs += list(state.get("doc_sources") or [])
     return list(dict.fromkeys(filter(None, srcs)))
 
 

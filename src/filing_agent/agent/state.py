@@ -35,6 +35,7 @@ class AgentState(TypedDict):
     steps: int             # 누적 도구 호출 수 (예산 카운터)
     # ── Phase 4 ──
     facts: Annotated[list[dict], operator.add]  # 수치 도구 성공 결과 누적(검증 근거)
+    doc_sources: Annotated[list[str], operator.add]  # doc_search 결과 출처 누적(서술형 출처)
     draft: str | None                            # finalize 산문 답변(AnswerSchema.answer)
     figures: list[dict]                          # finalize 주장 수치(검증 대상)
     verifier_feedback: str | None                # 검증 실패 피드백(재시도 시 agent에 전달)

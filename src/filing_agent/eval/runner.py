@@ -39,6 +39,7 @@ def _build_initial(item: dict[str, Any]) -> dict[str, Any]:
         "tool_log": [],
         "steps": 0,
         "facts": [],
+        "doc_sources": [],
         "draft": None,
         "figures": [],
         "verifier_feedback": None,

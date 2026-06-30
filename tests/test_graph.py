@@ -56,7 +56,7 @@ def _initial(question: str) -> dict:
     return {
         "question": question, "company": None, "year": None,
         "messages": [], "tool_log": [], "steps": 0,
-        "facts": [], "draft": None, "figures": [], "verifier_feedback": None,
+        "facts": [], "doc_sources": [], "draft": None, "figures": [], "verifier_feedback": None,
         "verify_attempts": 0, "status": None, "answer": None, "sources": [],
     }
 

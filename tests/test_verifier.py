@@ -1,6 +1,11 @@
 """harness/verifier.py 단위 테스트 — 모델·DB·키 불필요."""
 
-from filing_agent.harness.verifier import collect_fact_values, has_source, verify
+from filing_agent.harness.verifier import (
+    collect_fact_values,
+    facts_have_source,
+    has_source,
+    verify,
+)
 
 # ── 픽스처: facts 예시 ───────────────────────────────────────────────────────
 LOOKUP_FACT = {
@@ -40,6 +45,20 @@ class TestCollectFactValues:
         assert collect_fact_values([{"found": False, "reason": "x"}]) == set()
 
 
+class TestFactsHaveSource:
+    def test_present(self) -> None:
+        assert facts_have_source([LOOKUP_FACT]) is True
+
+    def test_empty_source_is_false(self) -> None:
+        assert facts_have_source([{**LOOKUP_FACT, "source": ""}]) is False
+
+    def test_skips_not_found(self) -> None:
+        assert facts_have_source([{"found": False, "source": "x"}]) is False
+
+    def test_empty_facts(self) -> None:
+        assert facts_have_source([]) is False
+
+
 class TestHasSource:
     def test_present(self) -> None:
         assert has_source("삼성전자 2024년 매출액은 ... (출처: 사업보고서)")
@@ -70,9 +89,18 @@ class TestVerify:
         assert ok is False
         assert "조회된 재무 값" in reason
 
-    def test_number_without_source_fails(self) -> None:
+    def test_number_passes_when_fact_has_source_without_prose_marker(self) -> None:
+        # structured output 에선 출처가 facts.source 에 있으므로 산문 마커가 없어도 통과해야 한다.
         figures = [{"account": "매출액", "year": 2024, "value": 300_870_903_000_000, "source": "x"}]
         ok, reason = verify(figures, [LOOKUP_FACT], "매출액은 300조원입니다")
+        assert ok is True
+        assert reason == ""
+
+    def test_number_fails_when_no_source_anywhere(self) -> None:
+        # facts 에도 source 가 없고 산문에도 표지가 없으면 실패.
+        fact_no_source = {**LOOKUP_FACT, "source": ""}
+        figures = [{"account": "매출액", "year": 2024, "value": 300_870_903_000_000, "source": "x"}]
+        ok, reason = verify(figures, [fact_no_source], "매출액은 300조원입니다")
         assert ok is False
         assert "출처" in reason
 

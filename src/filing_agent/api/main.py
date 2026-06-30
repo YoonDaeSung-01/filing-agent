@@ -114,6 +114,7 @@ def ask_agent(request: AskRequest) -> AskResponse:
         "tool_log": [],
         "steps": 0,
         "facts": [],
+        "doc_sources": [],
         "draft": None,
         "figures": [],
         "verifier_feedback": None,

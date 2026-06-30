@@ -68,9 +68,13 @@ def check_input(question: str, *, max_chars: int = 2000) -> GuardResult:
 
 # ── 출력 가드 ────────────────────────────────────────────────────────────────
 
-def check_output(answer: str, *, has_figures: bool) -> GuardResult:
-    """출력 가드. 수치 답변인데 출처 표지가 전혀 없으면 경고를 덧붙인다(차단까진 아님)."""
-    if has_figures and not _has_source_marker(answer):
+def check_output(answer: str, *, has_figures: bool, has_sources: bool = False) -> GuardResult:
+    """출력 가드. 수치 답변인데 출처가 어디에도 없으면 경고를 덧붙인다(차단까진 아님).
+
+    출처는 산문 표지 또는 구조화된 sources(has_sources) 중 하나면 충족으로 본다
+    (verifier 와 동일한 기준 — structured output 의 출처는 sources 리스트에 담긴다).
+    """
+    if has_figures and not has_sources and not _has_source_marker(answer):
         return {
             "action": "block",
             "answer": answer + "\n\n⚠️ (주의: 이 답변의 출처가 명시되지 않았습니다.)",

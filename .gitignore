@@ -15,6 +15,8 @@ wheels/
 # 생성/캐시 데이터 (런타임에 재생성됨). tests/fixtures/ 는 포함되어야 하므로 무시하지 않음.
 data/raw/
 data/vectordb/
+# 평가 실행 산출물(run_eval.py) — 재생성 가능
+results/
 
 # 도구 캐시
 .pytest_cache/

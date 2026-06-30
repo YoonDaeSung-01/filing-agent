@@ -46,6 +46,12 @@ class TestCheckOutput:
         assert r["action"] == "block"
         assert "주의" in r["answer"]
 
+    def test_figures_with_structured_sources_passes_without_prose_marker(self) -> None:
+        # 산문 마커가 없어도 구조화된 sources 가 있으면 경고하지 않는다(verifier 와 일치).
+        r = check_output("매출액은 300조원입니다", has_figures=True, has_sources=True)
+        assert r["action"] == "pass"
+        assert "주의" not in r["answer"]
+
     def test_narrative_passes(self) -> None:
         r = check_output("주요 위험은 환율입니다", has_figures=False)
         assert r["action"] == "pass"

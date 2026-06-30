@@ -32,11 +32,22 @@ def collect_fact_values(facts: Sequence[Mapping]) -> set[int]:
 
 
 def has_source(text: str) -> bool:
-    """답변에 출처 인용 표지가 있으면 True."""
+    """답변 산문에 출처 인용 표지가 있으면 True."""
     if not text:
         return False
     markers = ("출처", "보고서", "OpenDART", "공시")
     return any(m in text for m in markers)
+
+
+def facts_have_source(facts: Sequence[Mapping]) -> bool:
+    """조회된 facts 가 비어있지 않은 source 를 하나라도 가지면 True.
+
+    structured output 에선 출처가 산문이 아니라 figures/facts 의 source 필드에 들어간다.
+    따라서 숫자 답변의 출처는 산문 파싱이 아니라 이 구조화 값으로 판정한다(결정론).
+    """
+    return any(
+        bool(f.get("source")) for f in facts if f.get("found") is not False
+    )
 
 
 def verify(
@@ -49,8 +60,9 @@ def verify(
     규칙:
     1. figures 가 수치를 주장하는데 facts 가 비어 있으면 실패(환각 의심).
     2. figures 의 각 value 가 facts 의 허용 값 집합에 없으면 실패(근거 불일치).
-    3. 수치를 주장하면(figures 비어있지 않음) 출처 표지가 있어야 한다.
-    4. figures 가 비어 있는 순수 서술 답변은 출처 표지만 검사.
+    3. 수치를 주장하면(figures 비어있지 않음) 출처가 있어야 한다 —
+       조회된 facts 의 source(구조화) 또는 산문 출처 표지 중 하나면 통과.
+    4. figures 가 비어 있는 순수 서술 답변은 산문 출처 표지를 검사.
     """
     allowed = collect_fact_values(facts)
 
@@ -67,7 +79,8 @@ def verify(
                     f"주장한 수치 {claimed!r} 가 조회값과 일치하지 않습니다. "
                     "financial_lookup/compute_change 결과의 값만 사용하세요.",
                 )
-        if not has_source(draft):
+        # 출처: 구조화된 facts.source(우선) 또는 산문 표지 중 하나면 충족.
+        if not (facts_have_source(facts) or has_source(draft)):
             return False, "수치 답변에 출처(보고서·연도)가 없습니다. 출처를 표기하세요."
         return True, ""
 
