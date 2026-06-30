@@ -104,6 +104,32 @@ uv run python scripts/run_eval.py
 [Langfuse 클라우드](https://cloud.langfuse.com) 에 트레이스로 기록된다. 키가 없으면 자동으로 비활성화되며
 앱은 그대로 동작한다.
 
+## MCP 서버 (선택)
+
+재무 도구(`doc_search`·`financial_lookup`·`compute_change`·`compute_sum`)를 Model Context Protocol 로
+노출해, Claude Desktop 같은 MCP 클라이언트가 직접 호출하게 할 수 있다. 도구 로직은 에이전트와 동일한
+`agent/tools.py` 를 재사용한다.
+
+```bash
+uv run python -m filing_agent.mcp_server   # stdio 트랜스포트
+```
+
+Claude Desktop 연동(`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "filing-agent": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "filing_agent.mcp_server"],
+      "cwd": "<프로젝트 절대경로>"
+    }
+  }
+}
+```
+
+도구를 실제 호출하려면 `.env` 키와 인제스트된 데이터가 필요하다(서버 기동·도구 목록 조회는 키 없이 된다).
+
 ## 개발 점검
 
 ```bash
