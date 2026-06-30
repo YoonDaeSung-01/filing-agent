@@ -54,3 +54,62 @@ def test_ask_unknown_company_returns_200_with_message(monkeypatch) -> None:
     body = resp.json()
     assert body["fact"] is None
     assert "corp_code" in body["answer"]
+
+
+# ── POST /ask (에이전트) — 그래프를 모킹해 응답 스키마(facts 노출)만 검증 ──────────
+
+class _FakeGraph:
+    """graph.invoke 를 흉내내어 고정 final state 를 반환."""
+
+    def __init__(self, final: dict) -> None:
+        self._final = final
+
+    def invoke(self, initial, config=None):  # noqa: ANN001
+        return self._final
+
+
+def _patch_graph(monkeypatch, final: dict) -> None:
+    # ask_agent 가 함수 내부에서 import 하므로 graph 모듈의 get_graph 를 패치.
+    from filing_agent.agent import graph as graph_mod
+
+    monkeypatch.setattr(graph_mod, "get_graph", lambda: _FakeGraph(final))
+
+
+def test_post_ask_surfaces_facts_for_cards(monkeypatch) -> None:
+    """프론트 카드 렌더의 전제 — facts 가 응답에 그대로 노출되는지."""
+    fact = {
+        "company": "삼성전자", "account": "매출액", "year": 2024,
+        "value": 300_870_903_000_000, "fs_div": "CFS", "source": "삼성전자 2024 사업보고서",
+    }
+    _patch_graph(monkeypatch, {
+        "answer": "삼성전자가 공시한 2024년 매출액은 300조 8,709억원입니다. (출처: ...)",
+        "sources": ["삼성전자 2024 사업보고서"],
+        "tool_log": [{"tool": "financial_lookup", "args": {"company": "삼성전자"}, "ok": True}],
+        "facts": [fact],
+    })
+
+    resp = client.post("/ask", json={"question": "삼성전자 2024년 매출액은?"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["facts"] == [fact]           # 카드 렌더용 구조화 값이 그대로 노출
+    assert body["facts"][0]["value"] == 300_870_903_000_000
+    assert body["tool_log"][0]["tool"] == "financial_lookup"
+    assert body["sources"] == ["삼성전자 2024 사업보고서"]
+
+
+def test_post_ask_facts_defaults_to_empty_list(monkeypatch) -> None:
+    """순수 서술(doc_search)·가드레일 차단 등 facts 가 없을 때 빈 리스트로 안전하게 노출."""
+    _patch_graph(monkeypatch, {
+        "answer": "매수·매도 추천은 제공하지 않습니다.",
+        "sources": [],
+        "tool_log": [],
+        # facts 키 자체가 없음 → 응답에서 [] 로 폴백돼야 함
+    })
+
+    resp = client.post("/ask", json={"question": "삼성전자 주식 사야 할까?"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["facts"] == []
+    assert body["tool_log"] == []

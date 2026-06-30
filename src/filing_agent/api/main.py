@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from filing_agent.config import get_settings
@@ -26,6 +27,15 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="filing-agent",
     description="DART(한국 전자공시) 기반 공시 사실 추출 API. 투자 조언 도구가 아니다.",
+)
+
+# 프론트엔드(Next.js dev 서버)에서의 교차 출처 호출 허용.
+# 운영 배포 시 allow_origins 를 실제 도메인으로 좁힐 것.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -97,6 +107,7 @@ class AskResponse(BaseModel):
     answer: str
     sources: list[str]
     tool_log: list[dict] = []  # 도구 호출 과정 노출(디버그·데모용)
+    facts: list[dict] = []     # 수치 도구의 구조화 결과(프론트 카드 렌더용·성공 결과만)
 
 
 @app.post("/ask")
@@ -137,4 +148,5 @@ def ask_agent(request: AskRequest) -> AskResponse:
         answer=final.get("answer") or "",
         sources=final.get("sources") or [],
         tool_log=final.get("tool_log") or [],
+        facts=final.get("facts") or [],
     )
