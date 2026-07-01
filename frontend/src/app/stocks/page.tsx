@@ -44,12 +44,13 @@ export default function StocksPage() {
   const cError = isIntraday ? intraday.error : chart.error;
   const cData = isIntraday ? intraday.data : chart.data;
 
-  // 현재 종목 보유 수량(매도 활성 조건) — 종목코드로 매칭
+  // 현재 종목 보유 수량(매도 활성 조건) — 종목코드 우선, 로딩 중엔 회사명으로 폴백
+  // (종목 전환 직후 현재가 쿼리가 아직 안 끝났을 때 매도 탭이 잠깐 깜빡이는 것 방지)
   const currentTicker = price.data?.found ? price.data.ticker : undefined;
   const positions = balance.data?.found ? balance.data.positions : [];
   const heldQty = currentTicker
     ? (positions.find((p) => p.ticker === currentTicker)?.qty ?? 0)
-    : 0;
+    : (positions.find((p) => p.name === company)?.qty ?? 0);
 
   return (
     <div className="flex flex-col h-screen">
