@@ -33,6 +33,13 @@ export default function StocksPage() {
   const chart = useStock(company, period);
   const balance = useBalance();
 
+  // 현재 종목 보유 수량(매도 활성 조건) — 종목코드로 매칭
+  const currentTicker = price.data?.found ? price.data.ticker : undefined;
+  const positions = balance.data?.found ? balance.data.positions : [];
+  const heldQty = currentTicker
+    ? (positions.find((p) => p.ticker === currentTicker)?.qty ?? 0)
+    : 0;
+
   return (
     <div className="flex flex-col h-screen">
       <Header />
@@ -160,6 +167,7 @@ export default function StocksPage() {
                 <OrderPanel
                   company={company}
                   currentPrice={price.data?.found ? price.data.price : undefined}
+                  heldQty={heldQty}
                 />
                 <StockAIPanel key={company} company={company} />
               </div>

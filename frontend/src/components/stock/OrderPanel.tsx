@@ -1,55 +1,97 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlaceOrder } from "@/hooks/usePaper";
 
 interface Props {
   company: string;
   currentPrice?: number;
+  heldQty: number; // 현재 종목 보유 수량(0이면 매도 불가)
 }
 
-export function OrderPanel({ company, currentPrice }: Props) {
+export function OrderPanel({ company, currentPrice, heldQty }: Props) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [qty, setQty] = useState(1);
   const { mutate, data, isPending, reset } = usePlaceOrder();
 
+  const canSell = heldQty > 0;
+
+  // 보유가 없어지면(또는 없는 종목이면) 매수로 강제 전환
+  useEffect(() => {
+    if (!canSell && side === "sell") setSide("buy");
+  }, [canSell, side]);
+
+  // 매도 수량은 보유분까지만
+  useEffect(() => {
+    if (side === "sell" && qty > heldQty) setQty(Math.max(1, heldQty));
+  }, [side, heldQty, qty]);
+
   const isBuy = side === "buy";
   const accent = isBuy ? "#F04452" : "#1677FF";
   const estimate = currentPrice ? currentPrice * qty : 0;
+  const maxQty = isBuy ? undefined : heldQty;
 
   const submit = () => {
     if (qty < 1 || isPending) return;
+    if (!isBuy && qty > heldQty) return;
     mutate({ company, side, qty, order_type: "01", price: 0 });
   };
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-card border border-border">
-      <p className="text-sm font-bold text-[#191F28] mb-3">모의 주문</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-bold text-[#191F28]">모의 주문</p>
+        {canSell && (
+          <span className="text-xs text-[#6B7280]">보유 {heldQty}주</span>
+        )}
+      </div>
 
-      {/* 매수/매도 탭 */}
+      {/* 매수/매도 탭 — 매도는 보유 시에만 */}
       <div className="grid grid-cols-2 gap-1 bg-[#F2F4F6] rounded-xl p-1 mb-4">
-        {(["buy", "sell"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => {
-              setSide(s);
-              reset();
-            }}
-            className={`py-2 text-sm font-semibold rounded-lg transition-colors ${
-              side === s
-                ? s === "buy"
-                  ? "bg-[#F04452] text-white"
-                  : "bg-[#1677FF] text-white"
-                : "text-[#6B7280]"
-            }`}
-          >
-            {s === "buy" ? "매수" : "매도"}
-          </button>
-        ))}
+        <button
+          onClick={() => {
+            setSide("buy");
+            reset();
+          }}
+          className={`py-2 text-sm font-semibold rounded-lg transition-colors ${
+            isBuy ? "bg-[#F04452] text-white" : "text-[#6B7280]"
+          }`}
+        >
+          매수
+        </button>
+        <button
+          onClick={() => {
+            if (!canSell) return;
+            setSide("sell");
+            setQty(Math.min(qty, heldQty) || 1);
+            reset();
+          }}
+          disabled={!canSell}
+          title={canSell ? "" : "보유 종목만 매도할 수 있습니다"}
+          className={`py-2 text-sm font-semibold rounded-lg transition-colors ${
+            !isBuy
+              ? "bg-[#1677FF] text-white"
+              : canSell
+                ? "text-[#6B7280]"
+                : "text-[#D1D5DB] cursor-not-allowed"
+          }`}
+        >
+          매도
+        </button>
       </div>
 
       {/* 수량 */}
-      <label className="text-xs text-[#6B7280] mb-1 block">수량</label>
+      <label className="text-xs text-[#6B7280] mb-1 flex items-center justify-between">
+        <span>수량</span>
+        {!isBuy && (
+          <button
+            onClick={() => setQty(heldQty)}
+            className="text-[11px] text-[#1677FF] font-medium hover:underline"
+          >
+            전량 ({heldQty}주)
+          </button>
+        )}
+      </label>
       <div className="flex items-center gap-2 mb-3">
         <button
           onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -60,12 +102,17 @@ export function OrderPanel({ company, currentPrice }: Props) {
         <input
           type="number"
           min={1}
+          max={maxQty}
           value={qty}
-          onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+          onChange={(e) => {
+            let v = Math.max(1, parseInt(e.target.value) || 1);
+            if (maxQty !== undefined) v = Math.min(v, maxQty);
+            setQty(v);
+          }}
           className="flex-1 min-w-0 text-center text-sm border border-border rounded-lg py-2 focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
         />
         <button
-          onClick={() => setQty((q) => q + 1)}
+          onClick={() => setQty((q) => (maxQty !== undefined ? Math.min(maxQty, q + 1) : q + 1))}
           className="w-9 h-9 rounded-lg border border-border text-[#6B7280] hover:bg-[#F9FAFB]"
         >
           +
@@ -83,7 +130,7 @@ export function OrderPanel({ company, currentPrice }: Props) {
       {/* 주문 버튼 */}
       <button
         onClick={submit}
-        disabled={isPending}
+        disabled={isPending || (!isBuy && !canSell)}
         className="w-full py-3 rounded-xl text-white font-bold disabled:opacity-50 transition-opacity"
         style={{ background: accent }}
       >
