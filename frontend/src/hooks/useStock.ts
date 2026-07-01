@@ -1,8 +1,20 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchStock, fetchFinancialTrend } from "@/lib/api";
-import type { StockResponse, TrendResponse } from "@/lib/types";
+import { fetchStock, fetchStockPrice, fetchFinancialTrend } from "@/lib/api";
+import type { StockPriceResponse, StockResponse, TrendResponse } from "@/lib/types";
+
+// 한투 실시간 현재가 — 5초 폴링(실시간 근사)
+export function useStockPrice(company: string) {
+  return useQuery<StockPriceResponse, Error>({
+    queryKey: ["stock-price", company],
+    queryFn: () => fetchStockPrice(company),
+    enabled: !!company,
+    refetchInterval: 5000,
+    staleTime: 0,
+    retry: 1,
+  });
+}
 
 export function useStock(company: string, period = 365) {
   return useQuery<StockResponse, Error>({

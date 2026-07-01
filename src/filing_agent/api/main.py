@@ -124,6 +124,28 @@ def get_stock(
         return {"found": False, "reason": str(exc)}
 
 
+# ── GET /stock/price (한투 실시간 현재가) ────────────────────────────────────
+
+@app.get("/stock/price")
+def get_stock_price(company: str) -> dict[str, Any]:
+    """한투 KIS 실시간 현재가·당일 시세(사실만). 투자 조언 아님.
+
+    FDR 기반 /stock(과거 차트)과 분리 — 이건 자주 폴링되는 경량 실시간가.
+    """
+    settings = get_settings()
+    ticker = dart_client.resolve_stock_code(settings.dart_api_key, company)
+    if ticker is None:
+        return {"found": False, "reason": f"'{company}' 종목코드를 찾을 수 없습니다."}
+    try:
+        from filing_agent.platform.market.kis_market import get_current_price
+
+        data = get_current_price(ticker, settings)
+        return {"found": True, "company": company, **data}
+    except Exception as exc:
+        logger.exception("현재가 조회 실패: company=%r", company)
+        return {"found": False, "reason": str(exc)}
+
+
 # ── GET /financial/trend ─────────────────────────────────────────────────────
 
 @app.get("/financial/trend")

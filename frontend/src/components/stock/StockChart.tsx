@@ -68,8 +68,8 @@ export function StockChart({ data, period }: Props) {
             borderRadius: 12,
             fontSize: 12,
           }}
-          labelFormatter={(label: string) => label}
-          formatter={(value: number) => [formatClose(value), "종가"]}
+          labelFormatter={(label) => String(label)}
+          formatter={(value) => [formatClose(Number(value)), "종가"]}
         />
         <Area
           type="monotone"

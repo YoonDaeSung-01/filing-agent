@@ -98,6 +98,25 @@ export interface StockError {
 
 export type StockResponse = StockSummary | StockError;
 
+// 한투 KIS 실시간 현재가 (사실만; PER/PBR 등 해석지표 제외)
+export interface StockPrice {
+  found: true;
+  company: string;
+  ticker: string;
+  price: number;
+  change: number;       // 부호 포함
+  change_pct: number;
+  open: number;
+  high: number;
+  low: number;
+  volume: number;
+  market_cap_eok: number; // 시가총액(억원)
+  w52_high: number;
+  w52_low: number;
+}
+
+export type StockPriceResponse = StockPrice | StockError;
+
 // ── 재무 추이 타입 ──────────────────────────────────────────────────────────
 
 export interface TrendPoint {

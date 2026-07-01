@@ -31,8 +31,8 @@ export function TrendSparkline({ points }: Props) {
             fontSize: 11,
             padding: "4px 8px",
           }}
-          formatter={(v: number) => [formatKRW(v), ""]}
-          labelFormatter={(l: number) => `${l}년`}
+          formatter={(v) => [formatKRW(Number(v)), ""]}
+          labelFormatter={(l) => `${l}년`}
         />
         <Area
           type="monotone"
