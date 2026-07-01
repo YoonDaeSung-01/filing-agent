@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePlaceOrder } from "@/hooks/usePaper";
 import { useTradeJournal } from "@/hooks/useTradeJournal";
 
@@ -18,32 +18,36 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
   const { addEntry } = useTradeJournal();
 
   const canSell = heldQty > 0;
+  // 파생 상태로 계산 — heldQty/side가 바뀌어도 useEffect 없이 항상 일관됨
+  // (보유가 없어지면 자동으로 매수로 취급, 수량은 보유분 이내로 자동 클램프)
+  const isBuy = canSell ? side === "buy" : true;
+  const qtyLimit = isBuy ? undefined : Math.max(heldQty, 1);
+  const displayQty = qtyLimit !== undefined ? Math.min(Math.max(qty, 1), qtyLimit) : Math.max(qty, 1);
 
-  // 보유가 없어지면(또는 없는 종목이면) 매수로 강제 전환
-  useEffect(() => {
-    if (!canSell && side === "sell") setSide("buy");
-  }, [canSell, side]);
-
-  // 매도 수량은 보유분까지만
-  useEffect(() => {
-    if (side === "sell" && qty > heldQty) setQty(Math.max(1, heldQty));
-  }, [side, heldQty, qty]);
-
-  const isBuy = side === "buy";
   const accent = isBuy ? "#F04452" : "#1677FF";
-  const estimate = currentPrice ? currentPrice * qty : 0;
-  const maxQty = isBuy ? undefined : heldQty;
+  const estimate = currentPrice ? currentPrice * displayQty : 0;
+
+  const setClamped = (next: number) => {
+    const v = Math.max(1, next);
+    setQty(qtyLimit !== undefined ? Math.min(v, qtyLimit) : v);
+  };
 
   const submit = () => {
-    if (qty < 1 || isPending) return;
-    if (!isBuy && qty > heldQty) return;
+    if (displayQty < 1 || isPending) return;
+    if (!isBuy && displayQty > heldQty) return;
     const orderReason = reason.trim();
     mutate(
-      { company, side, qty, order_type: "01", price: 0 },
+      { company, side: isBuy ? "buy" : "sell", qty: displayQty, order_type: "01", price: 0 },
       {
         onSuccess: (result) => {
           if (result.ok) {
-            addEntry({ company, side, qty, price: currentPrice ?? 0, reason: orderReason });
+            addEntry({
+              company,
+              side: isBuy ? "buy" : "sell",
+              qty: displayQty,
+              price: currentPrice ?? 0,
+              reason: orderReason,
+            });
             setReason("");
           }
         },
@@ -55,14 +59,13 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
     <div className="bg-white rounded-2xl p-5 shadow-card border border-border">
       <div className="flex items-center justify-between mb-3">
         <p className="text-sm font-bold text-[#191F28]">모의 주문</p>
-        {canSell && (
-          <span className="text-xs text-[#6B7280]">보유 {heldQty}주</span>
-        )}
+        {canSell && <span className="text-xs text-[#6B7280]">보유 {heldQty}주</span>}
       </div>
 
       {/* 매수/매도 탭 — 매도는 보유 시에만 */}
       <div className="grid grid-cols-2 gap-1 bg-[#F2F4F6] rounded-xl p-1 mb-4">
         <button
+          type="button"
           onClick={() => {
             setSide("buy");
             reset();
@@ -74,10 +77,10 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
           매수
         </button>
         <button
+          type="button"
           onClick={() => {
             if (!canSell) return;
             setSide("sell");
-            setQty(Math.min(qty, heldQty) || 1);
             reset();
           }}
           disabled={!canSell}
@@ -95,20 +98,22 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
       </div>
 
       {/* 수량 */}
-      <label className="text-xs text-[#6B7280] mb-1 flex items-center justify-between">
+      <div className="text-xs text-[#6B7280] mb-1 flex items-center justify-between">
         <span>수량</span>
         {!isBuy && (
           <button
+            type="button"
             onClick={() => setQty(heldQty)}
             className="text-[11px] text-[#1677FF] font-medium hover:underline"
           >
             전량 ({heldQty}주)
           </button>
         )}
-      </label>
+      </div>
       <div className="flex items-center gap-2 mb-3">
         <button
-          onClick={() => setQty((q) => Math.max(1, q - 1))}
+          type="button"
+          onClick={() => setClamped(displayQty - 1)}
           className="w-9 h-9 rounded-lg border border-border text-[#6B7280] hover:bg-[#F9FAFB]"
         >
           −
@@ -116,17 +121,14 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
         <input
           type="number"
           min={1}
-          max={maxQty}
-          value={qty}
-          onChange={(e) => {
-            let v = Math.max(1, parseInt(e.target.value) || 1);
-            if (maxQty !== undefined) v = Math.min(v, maxQty);
-            setQty(v);
-          }}
+          max={qtyLimit}
+          value={displayQty}
+          onChange={(e) => setClamped(parseInt(e.target.value) || 1)}
           className="flex-1 min-w-0 text-center text-sm border border-border rounded-lg py-2 focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
         />
         <button
-          onClick={() => setQty((q) => (maxQty !== undefined ? Math.min(maxQty, q + 1) : q + 1))}
+          type="button"
+          onClick={() => setClamped(displayQty + 1)}
           className="w-9 h-9 rounded-lg border border-border text-[#6B7280] hover:bg-[#F9FAFB]"
         >
           +
@@ -155,12 +157,13 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
 
       {/* 주문 버튼 */}
       <button
+        type="button"
         onClick={submit}
         disabled={isPending || (!isBuy && !canSell)}
         className="w-full py-3 rounded-xl text-white font-bold disabled:opacity-50 transition-opacity"
         style={{ background: accent }}
       >
-        {isPending ? "주문 중..." : `${company} ${qty}주 ${isBuy ? "매수" : "매도"}`}
+        {isPending ? "주문 중..." : `${company} ${displayQty}주 ${isBuy ? "매수" : "매도"}`}
       </button>
 
       {/* 결과 */}

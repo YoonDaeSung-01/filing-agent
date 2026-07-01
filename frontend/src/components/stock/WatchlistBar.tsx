@@ -25,19 +25,25 @@ export function WatchlistBar({ activeCompany, onSelect }: Props) {
       {items.map((it) => {
         const active = it.name === activeCompany;
         return (
-          <button
+          <div
             key={it.name}
+            role="button"
+            tabIndex={0}
             onClick={() => onSelect(it.name)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") onSelect(it.name);
+            }}
             className={[
-              "group flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium transition-colors border",
+              "group flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium transition-colors border cursor-pointer",
               active
                 ? "bg-[#3182F6] text-white border-[#3182F6]"
                 : "bg-white text-[#191F28] border-border hover:border-[#3182F6]",
             ].join(" ")}
           >
             {it.name}
-            <span
-              role="button"
+            <button
+              type="button"
+              aria-label={`${it.name} 관심종목에서 제거`}
               onClick={(e) => {
                 e.stopPropagation();
                 remove(it.name);
@@ -48,8 +54,8 @@ export function WatchlistBar({ activeCompany, onSelect }: Props) {
               ].join(" ")}
             >
               <X size={11} />
-            </span>
-          </button>
+            </button>
+          </div>
         );
       })}
     </div>
