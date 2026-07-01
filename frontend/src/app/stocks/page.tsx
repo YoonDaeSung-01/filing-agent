@@ -8,6 +8,7 @@ import { StockAIPanel } from "@/components/stock/StockAIPanel";
 import { OrderPanel } from "@/components/stock/OrderPanel";
 import { PortfolioCard } from "@/components/stock/PortfolioCard";
 import { JournalCard } from "@/components/stock/JournalCard";
+import { NewsPanel } from "@/components/stock/NewsPanel";
 import { SearchBox } from "@/components/stock/SearchBox";
 import { WatchlistBar } from "@/components/stock/WatchlistBar";
 import { useStock, useStockPrice, useIntraday } from "@/hooks/useStock";
@@ -167,6 +168,9 @@ export default function StocksPage() {
                   <p className="text-xs text-[#92400E]">{cData.reason}</p>
                 )}
               </div>
+
+              {/* 관련 뉴스 */}
+              <NewsPanel key={company} company={company} />
 
               {/* 내 모의투자 (포트폴리오) */}
               <PortfolioCard />

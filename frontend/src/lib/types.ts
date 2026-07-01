@@ -174,6 +174,24 @@ export interface OrderResult {
   message: string;
 }
 
+// ── 뉴스 (네이버 검색) ──────────────────────────────────────────────────────
+
+export interface NewsItem {
+  title: string;
+  link: string;
+  description: string;
+  pub_date: string;
+  source: string;
+}
+
+export interface NewsSuccess {
+  found: true;
+  company: string;
+  items: NewsItem[];
+}
+
+export type NewsResponse = NewsSuccess | StockError;
+
 // ── 재무 추이 타입 ──────────────────────────────────────────────────────────
 
 export interface TrendPoint {

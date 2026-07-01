@@ -225,6 +225,20 @@ def get_stock_intraday(company: str) -> dict[str, Any]:
         return {"found": False, "reason": str(exc)}
 
 
+# ── GET /news (관심종목 뉴스) ─────────────────────────────────────────────────
+
+@app.get("/news")
+def get_news(company: str, display: int = 10) -> dict[str, Any]:
+    """종목 관련 최신 뉴스(사실 요약만). 호재/악재 판정·투자 신호화 없음."""
+    from filing_agent.platform.news.naver_news import fetch_news
+
+    try:
+        return {"found": True, "company": company, "items": fetch_news(company, display=display)}
+    except Exception as exc:
+        logger.exception("뉴스 조회 실패: company=%r", company)
+        return {"found": False, "reason": str(exc)}
+
+
 # ── GET /financial/trend ─────────────────────────────────────────────────────
 
 @app.get("/financial/trend")
