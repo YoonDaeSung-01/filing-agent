@@ -7,6 +7,7 @@ PER/PBR 등 해석 여지가 큰 지표는 (사용자 결정: 사실만·해석 
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -19,6 +20,11 @@ logger = logging.getLogger(__name__)
 _TIMEOUT_SEC = 10.0
 _PRICE_PATH = "/uapi/domestic-stock/v1/quotations/inquire-price"
 _TR_CURRENT_PRICE = "FHKST01010100"  # 국내주식 현재가 시세
+
+_INTRADAY_PATH = "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice"
+_TR_INTRADAY = "FHKST03010200"  # 당일 분봉
+_MKT_OPEN = "090000"
+_MKT_CLOSE = "153000"
 
 
 def _to_int(v: Any) -> int:
@@ -78,3 +84,68 @@ def get_current_price(ticker: str, settings: Settings | None = None) -> dict[str
         "w52_high": _to_int(out.get("w52_hgpr")),
         "w52_low": _to_int(out.get("w52_lwpr")),
     }
+
+
+def get_intraday(ticker: str, settings: Settings | None = None, max_pages: int = 14) -> list[dict]:
+    """당일 분봉을 시간 오름차순으로 반환한다(장중~마감). vps.
+
+    한투는 1회 30건이라 마감(15:30)부터 개장(09:00)까지 역방향 페이지네이션한다.
+    반환: [{date("HH:MM"), open, high, low, close, volume}, ...]
+    """
+    cfg = settings or get_settings()
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {get_access_token(cfg)}",
+        "appkey": cfg.kis_app_key,
+        "appsecret": cfg.kis_app_secret,
+        "tr_id": _TR_INTRADAY,
+    }
+    seen: dict[str, dict[str, Any]] = {}
+    anchor = _MKT_CLOSE
+    url = f"{cfg.kis_base_url}{_INTRADAY_PATH}"
+    for i in range(max_pages):
+        if i > 0:
+            time.sleep(0.12)  # 레이트리밋 회피(초당 제한)
+        params = {
+            "FID_ETC_CLS_CODE": "",
+            "FID_COND_MRKT_DIV_CODE": "J",
+            "FID_INPUT_ISCD": ticker,
+            "FID_INPUT_HOUR_1": anchor,
+            "FID_PW_DATA_INCU_YN": "Y",
+        }
+        try:
+            resp = httpx.get(url, headers=headers, params=params, timeout=_TIMEOUT_SEC)
+            resp.raise_for_status()
+            payload = resp.json()
+        except httpx.HTTPError:
+            break  # 페이지 실패 시 지금까지 모은 부분 데이터 반환
+        if payload.get("rt_cd") != "0":
+            break
+        rows = payload.get("output2") or []
+        if not rows:
+            break
+        for row in rows:
+            t = (row.get("stck_cntg_hour") or "").strip()
+            if t:
+                seen.setdefault(t, row)
+        oldest = (rows[-1].get("stck_cntg_hour") or "").strip()
+        if not oldest or oldest <= _MKT_OPEN:
+            break
+        anchor = oldest
+
+    items: list[dict] = []
+    for t in sorted(seen):
+        if t < _MKT_OPEN or t > _MKT_CLOSE:
+            continue
+        row = seen[t]
+        items.append(
+            {
+                "date": f"{t[:2]}:{t[2:4]}",
+                "open": _to_int(row.get("stck_oprc")),
+                "high": _to_int(row.get("stck_hgpr")),
+                "low": _to_int(row.get("stck_lwpr")),
+                "close": _to_int(row.get("stck_prpr")),
+                "volume": _to_int(row.get("cntg_vol")),
+            }
+        )
+    return items

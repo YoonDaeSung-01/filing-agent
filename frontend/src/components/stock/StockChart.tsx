@@ -23,9 +23,10 @@ function formatDate(dateStr: string) {
 interface Props {
   data: OHLCPoint[];
   period: number;
+  intraday?: boolean; // true면 X축이 날짜가 아니라 "HH:MM"
 }
 
-export function StockChart({ data, period }: Props) {
+export function StockChart({ data, period, intraday = false }: Props) {
   // 기간에 따라 X축 레이블 밀도 조정
   const tickCount = period <= 90 ? 6 : period <= 180 ? 6 : 8;
   const step = Math.max(1, Math.floor(data.length / tickCount));
@@ -52,7 +53,7 @@ export function StockChart({ data, period }: Props) {
         <XAxis
           dataKey="date"
           ticks={ticks}
-          tickFormatter={formatDate}
+          tickFormatter={intraday ? (v: string) => v : formatDate}
           tick={{ fontSize: 11, fill: "#9CA3AF" }}
           axisLine={false}
           tickLine={false}

@@ -101,7 +101,7 @@ def ask_revenue(company: str, year: int) -> dict[str, Any]:
 @app.get("/stock")
 def get_stock(
     company: str,
-    period: int = Query(default=365, ge=30, le=1825),
+    period: int = Query(default=365, ge=5, le=1825),
 ) -> dict[str, Any]:
     """주가 OHLC + 요약 통계. 사실 데이터만. 투자 조언 아님.
 
@@ -205,6 +205,24 @@ def post_paper_order(req: OrderRequest) -> dict[str, Any]:
     except Exception as exc:
         logger.exception("모의투자 주문 실패: %r", req.company)
         return {"ok": False, "message": str(exc)}
+
+
+# ── GET /stock/intraday (당일 분봉) ──────────────────────────────────────────
+
+@app.get("/stock/intraday")
+def get_stock_intraday(company: str) -> dict[str, Any]:
+    """한투 당일 분봉(실시간/1일 차트용). 사실만."""
+    settings = get_settings()
+    ticker = dart_client.resolve_stock_code(settings.dart_api_key, company)
+    if ticker is None:
+        return {"found": False, "reason": f"'{company}' 종목코드를 찾을 수 없습니다."}
+    try:
+        from filing_agent.platform.market.kis_market import get_intraday
+
+        return {"found": True, "company": company, "ticker": ticker, "ohlc": get_intraday(ticker)}
+    except Exception as exc:
+        logger.exception("분봉 조회 실패: company=%r", company)
+        return {"found": False, "reason": str(exc)}
 
 
 # ── GET /financial/trend ─────────────────────────────────────────────────────

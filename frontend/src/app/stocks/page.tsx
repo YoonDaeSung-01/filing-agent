@@ -8,7 +8,7 @@ import { StockAIPanel } from "@/components/stock/StockAIPanel";
 import { OrderPanel } from "@/components/stock/OrderPanel";
 import { PortfolioCard } from "@/components/stock/PortfolioCard";
 import { SearchBox } from "@/components/stock/SearchBox";
-import { useStock, useStockPrice } from "@/hooks/useStock";
+import { useStock, useStockPrice, useIntraday } from "@/hooks/useStock";
 import { useBalance } from "@/hooks/usePaper";
 import { TARGET_COMPANIES } from "@/lib/constants";
 
@@ -17,9 +17,10 @@ function fmt(v: number) {
 }
 
 const PERIOD_OPTIONS = [
+  { label: "실시간", days: 0 }, // 당일 분봉
+  { label: "1주", days: 7 },
   { label: "1개월", days: 30 },
   { label: "3개월", days: 90 },
-  { label: "6개월", days: 180 },
   { label: "1년", days: 365 },
   { label: "3년", days: 1095 },
 ];
@@ -28,10 +29,17 @@ export default function StocksPage() {
   const [company, setCompany] = useState<string>(TARGET_COMPANIES[0]);
   const [period, setPeriod] = useState(365);
 
-  // 한투 실시간 현재가(요약, 5초 폴링) + FDR 과거 차트(기간별)
+  // 실시간(당일 분봉)은 한투, 그 외 기간은 FDR 일봉
+  const isIntraday = period === 0;
   const price = useStockPrice(company);
-  const chart = useStock(company, period);
+  const chart = useStock(company, period, !isIntraday);
+  const intraday = useIntraday(company, isIntraday);
   const balance = useBalance();
+
+  // 차트 데이터 소스 선택
+  const cLoading = isIntraday ? intraday.isLoading : chart.isLoading;
+  const cError = isIntraday ? intraday.error : chart.error;
+  const cData = isIntraday ? intraday.data : chart.data;
 
   // 현재 종목 보유 수량(매도 활성 조건) — 종목코드로 매칭
   const currentTicker = price.data?.found ? price.data.ticker : undefined;
@@ -131,24 +139,27 @@ export default function StocksPage() {
                 />
               )}
 
-              {/* 과거 차트 */}
+              {/* 차트 — 실시간(분봉) 또는 일봉 */}
               <div className="bg-white rounded-2xl p-5 shadow-card border border-border">
                 <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider mb-4">
-                  주가 추이 (일봉)
+                  {isIntraday ? "당일 분봉 (실시간)" : "주가 추이 (일봉)"}
                 </p>
-                {chart.isLoading && (
-                  <div className="h-[240px] bg-[#F2F4F6] rounded-xl animate-pulse" />
-                )}
-                {chart.error && !chart.isLoading && (
+                {cLoading && <div className="h-[240px] bg-[#F2F4F6] rounded-xl animate-pulse" />}
+                {cError && !cLoading && (
                   <p className="text-xs text-[#92400E]">
-                    차트를 불러올 수 없습니다: {chart.error.message}
+                    차트를 불러올 수 없습니다: {cError.message}
                   </p>
                 )}
-                {chart.data && chart.data.found && (
-                  <StockChart data={chart.data.ohlc} period={period} />
+                {cData && cData.found && cData.ohlc.length > 0 && (
+                  <StockChart data={cData.ohlc} period={period} intraday={isIntraday} />
                 )}
-                {chart.data && !chart.data.found && (
-                  <p className="text-xs text-[#92400E]">{chart.data.reason}</p>
+                {cData && cData.found && cData.ohlc.length === 0 && (
+                  <p className="text-xs text-[#9CA3AF] text-center py-10">
+                    분봉 데이터가 없습니다 (장 시작 전이거나 휴장).
+                  </p>
+                )}
+                {cData && !cData.found && (
+                  <p className="text-xs text-[#92400E]">{cData.reason}</p>
                 )}
               </div>
 

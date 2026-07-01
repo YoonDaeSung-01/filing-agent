@@ -98,6 +98,15 @@ export interface StockError {
 
 export type StockResponse = StockSummary | StockError;
 
+export interface Intraday {
+  found: true;
+  company: string;
+  ticker: string;
+  ohlc: OHLCPoint[];
+}
+
+export type IntradayResponse = Intraday | StockError;
+
 export interface SearchResult {
   name: string;
   ticker: string;

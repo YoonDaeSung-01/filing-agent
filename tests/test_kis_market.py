@@ -77,3 +77,62 @@ def test_int_parsing_handles_commas_and_blanks(monkeypatch):
     r = kis_market.get_current_price("005930", _cfg())
     assert r["price"] == 1234
     assert r["change"] == 0  # 빈 문자열 → 0
+
+
+def _bar(hhmmss: str, close: str, vol: str = "10") -> dict:
+    return {
+        "stck_cntg_hour": hhmmss,
+        "stck_oprc": close,
+        "stck_hgpr": close,
+        "stck_lwpr": close,
+        "stck_prpr": close,
+        "cntg_vol": vol,
+    }
+
+
+def test_intraday_paginates_sorts_and_bounds(monkeypatch):
+    monkeypatch.setattr(kis_market, "get_access_token", lambda cfg=None: "T")
+    monkeypatch.setattr(kis_market.time, "sleep", lambda s: None)
+    pages = [
+        {"rt_cd": "0", "output2": [_bar("153000", "100"), _bar("152900", "99")]},
+        {"rt_cd": "0", "output2": [_bar("090000", "98")]},  # 09:00 도달 → 종료
+    ]
+    calls = {"i": 0}
+
+    def fake_get(url, headers, params, timeout):
+        page = pages[min(calls["i"], len(pages) - 1)]
+        calls["i"] += 1
+        return _FakeResp(page)
+
+    monkeypatch.setattr(kis_market.httpx, "get", fake_get)
+
+    items = kis_market.get_intraday("005930", _cfg())
+    assert [it["date"] for it in items] == ["09:00", "15:29", "15:30"]  # 오름차순
+    assert items[-1]["close"] == 100
+
+
+def test_intraday_partial_on_http_error(monkeypatch):
+    """페이지 실패 시 지금까지 모은 부분 데이터 반환."""
+    monkeypatch.setattr(kis_market, "get_access_token", lambda cfg=None: "T")
+    monkeypatch.setattr(kis_market.time, "sleep", lambda s: None)
+    calls = {"i": 0}
+
+    def fake_get(url, headers, params, timeout):
+        if calls["i"] == 0:
+            calls["i"] += 1
+            return _FakeResp({"rt_cd": "0", "output2": [_bar("153000", "100"), _bar("152900", "99")]})  # noqa: E501
+        raise kis_market.httpx.HTTPError("boom")
+
+    monkeypatch.setattr(kis_market.httpx, "get", fake_get)
+
+    items = kis_market.get_intraday("005930", _cfg())
+    assert len(items) == 2  # 1페이지분만
+
+
+def test_intraday_no_account_ok_empty(monkeypatch):
+    monkeypatch.setattr(kis_market, "get_access_token", lambda cfg=None: "T")
+    monkeypatch.setattr(kis_market.time, "sleep", lambda s: None)
+    monkeypatch.setattr(
+        kis_market.httpx, "get", lambda *a, **k: _FakeResp({"rt_cd": "1", "output2": []})
+    )
+    assert kis_market.get_intraday("005930", _cfg()) == []

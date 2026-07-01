@@ -2,6 +2,7 @@ import type {
   AskRequest,
   AskResponse,
   BalanceResponse,
+  IntradayResponse,
   OrderRequest,
   OrderResult,
   SearchResult,
@@ -46,6 +47,12 @@ export async function fetchStockPrice(company: string): Promise<StockPriceRespon
   const res = await fetch(`${BASE_URL}/stock/price?company=${encodeURIComponent(company)}`);
   if (!res.ok) throw new Error(`현재가 API 오류: ${res.status}`);
   return res.json() as Promise<StockPriceResponse>;
+}
+
+export async function fetchIntraday(company: string): Promise<IntradayResponse> {
+  const res = await fetch(`${BASE_URL}/stock/intraday?company=${encodeURIComponent(company)}`);
+  if (!res.ok) throw new Error(`분봉 API 오류: ${res.status}`);
+  return res.json() as Promise<IntradayResponse>;
 }
 
 export async function searchStocks(q: string): Promise<SearchResult[]> {
