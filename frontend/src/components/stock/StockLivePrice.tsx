@@ -1,7 +1,8 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Star } from "lucide-react";
 import type { StockPrice } from "@/lib/types";
+import { useWatchlist } from "@/hooks/useWatchlist";
 
 function fmt(v: number) {
   return v.toLocaleString("ko-KR");
@@ -23,12 +24,26 @@ interface Props {
 export function StockLivePrice({ data, isFetching, updatedAt, onRefresh }: Props) {
   const up = data.change >= 0;
   const color = up ? "#F04452" : "#1677FF"; // 토스: 상승=빨강, 하락=파랑
+  const { isWatched, toggle } = useWatchlist();
+  const watched = isWatched(data.company);
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-card border border-border">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="text-lg font-bold text-[#191F28]">{data.company}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-lg font-bold text-[#191F28]">{data.company}</p>
+            <button
+              onClick={() => toggle(data.company)}
+              aria-label={watched ? "관심종목에서 제거" : "관심종목에 추가"}
+              className="p-0.5 rounded-full hover:bg-[#F2F4F6] transition-colors"
+            >
+              <Star
+                size={16}
+                className={watched ? "fill-[#FFB800] text-[#FFB800]" : "text-[#D1D5DB]"}
+              />
+            </button>
+          </div>
           <p className="text-xs text-[#9CA3AF] mt-0.5 flex items-center gap-1.5">
             {data.ticker} · 한투 KIS
             <span className="inline-flex items-center gap-1">

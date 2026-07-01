@@ -7,7 +7,9 @@ import { StockLivePrice } from "@/components/stock/StockLivePrice";
 import { StockAIPanel } from "@/components/stock/StockAIPanel";
 import { OrderPanel } from "@/components/stock/OrderPanel";
 import { PortfolioCard } from "@/components/stock/PortfolioCard";
+import { JournalCard } from "@/components/stock/JournalCard";
 import { SearchBox } from "@/components/stock/SearchBox";
+import { WatchlistBar } from "@/components/stock/WatchlistBar";
 import { useStock, useStockPrice, useIntraday } from "@/hooks/useStock";
 import { useBalance } from "@/hooks/usePaper";
 import { TARGET_COMPANIES } from "@/lib/constants";
@@ -106,6 +108,9 @@ export default function StocksPage() {
             </div>
           </div>
 
+          {/* 관심종목 — 원탭 전환 */}
+          <WatchlistBar activeCompany={company} onSelect={setCompany} />
+
           {/* 2단 레이아웃 — 좌: 시세·차트 / 우: 종목 분석(sticky) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
             {/* 좌측 (2/3) */}
@@ -165,6 +170,7 @@ export default function StocksPage() {
 
               {/* 내 모의투자 (포트폴리오) */}
               <PortfolioCard />
+              <JournalCard />
 
               <p className="text-xs text-[#9CA3AF]">
                 본 정보는 한투 KIS·KRX 공개 데이터 기반 사실 정보이며 투자 권유·투자 조언이

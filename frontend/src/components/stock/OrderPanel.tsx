@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePlaceOrder } from "@/hooks/usePaper";
+import { useTradeJournal } from "@/hooks/useTradeJournal";
 
 interface Props {
   company: string;
@@ -12,7 +13,9 @@ interface Props {
 export function OrderPanel({ company, currentPrice, heldQty }: Props) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [qty, setQty] = useState(1);
+  const [reason, setReason] = useState("");
   const { mutate, data, isPending, reset } = usePlaceOrder();
+  const { addEntry } = useTradeJournal();
 
   const canSell = heldQty > 0;
 
@@ -34,7 +37,18 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
   const submit = () => {
     if (qty < 1 || isPending) return;
     if (!isBuy && qty > heldQty) return;
-    mutate({ company, side, qty, order_type: "01", price: 0 });
+    const orderReason = reason.trim();
+    mutate(
+      { company, side, qty, order_type: "01", price: 0 },
+      {
+        onSuccess: (result) => {
+          if (result.ok) {
+            addEntry({ company, side, qty, price: currentPrice ?? 0, reason: orderReason });
+            setReason("");
+          }
+        },
+      },
+    );
   };
 
   return (
@@ -120,12 +134,24 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
       </div>
 
       {/* 예상 금액 */}
-      <div className="flex justify-between text-xs text-[#6B7280] mb-4">
+      <div className="flex justify-between text-xs text-[#6B7280] mb-3">
         <span>예상 금액 (시장가)</span>
         <span className="font-semibold text-[#191F28]">
           {estimate ? estimate.toLocaleString("ko-KR") + "원" : "—"}
         </span>
       </div>
+
+      {/* 매매일지 — 이유 기록(선택) */}
+      <label className="text-xs text-[#6B7280] mb-1 block">
+        {isBuy ? "왜 사나요?" : "왜 파나요?"} <span className="text-[#D1D5DB]">(선택)</span>
+      </label>
+      <textarea
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="예: 3분기 실적 발표 기대, 목표가 도달 등"
+        rows={2}
+        className="w-full text-xs border border-border rounded-lg px-2.5 py-2 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-[#3182F6] placeholder:text-[#D1D5DB]"
+      />
 
       {/* 주문 버튼 */}
       <button
@@ -141,7 +167,7 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
       {data && (
         <p className={`text-xs mt-3 ${data.ok ? "text-[#16A34A]" : "text-[#92400E]"}`}>
           {data.ok
-            ? `✓ ${data.message}${data.order_no ? ` (주문번호 ${data.order_no})` : ""}`
+            ? `✓ ${data.message}${data.order_no ? ` (주문번호 ${data.order_no})` : ""} · 매매일지에 기록됨`
             : `⚠️ ${data.message}`}
         </p>
       )}
