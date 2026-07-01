@@ -12,6 +12,11 @@ on:
 jobs:
   lint-test:
     runs-on: ubuntu-latest
+    env:
+      # Settings.dart_api_key 는 필수 필드라 값이 "존재"만 하면 된다(진짜 API 호출은
+      # 전부 픽스처/모킹이라 유효한 키가 필요 없다). 이게 없으면 api/main.py 임포트
+      # 시점의 configure_observability() -> get_settings() 에서 pydantic ValidationError.
+      DART_API_KEY: ci-dummy-key-not-a-real-secret
     steps:
       - uses: actions/checkout@v4
 

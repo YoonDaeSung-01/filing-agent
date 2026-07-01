@@ -28,6 +28,11 @@ dependencies = [
     "langfuse>=4.12.0",
     "mcp[cli]>=1.28.1",
     "finance-datareader>=0.9.202",
+    "sqlalchemy>=2.0.51",
+    "alembic>=1.18.5",
+    "python-jose[cryptography]>=3.5.0",
+    "bcrypt>=5.0.0",
+    "email-validator>=2.3.0",
 ]
 
 [build-system]
@@ -43,6 +48,7 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+extend-exclude = ["alembic/versions"]  # Alembic 자동생성 마이그레이션(스타일 보일러플레이트)
 
 [tool.ruff.lint]
 # E/F: pyflakes+pycodestyle, I: isort, UP: pyupgrade, B: bugbear

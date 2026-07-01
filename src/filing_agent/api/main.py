@@ -20,6 +20,7 @@ from filing_agent.ingest.facts import DartApiError, build_revenue_fact
 from filing_agent.ingest.stock_client import compute_stock_summary, fetch_stock_ohlc
 from filing_agent.logging_config import configure_logging
 from filing_agent.observability import configure_observability, get_langfuse_callbacks
+from filing_agent.platform.routes import router as platform_router
 
 configure_logging()
 configure_observability()  # 키 있을 때만 Langfuse 트레이싱(없으면 no-op)
@@ -35,9 +36,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+app.include_router(platform_router)
 
 
 # ── GET /health ──────────────────────────────────────────────────────────────
