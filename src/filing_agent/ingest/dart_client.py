@@ -98,21 +98,40 @@ def resolve_stock_code(api_key: str, name: str) -> str | None:
     return _load_stock_code_map(api_key).get(name)
 
 
+# 일상 표현 → DART 공식 상장사명. 부분일치로는 안 잡히는 흔한 별칭만 최소로 유지.
+_SEARCH_ALIASES: dict[str, str] = {
+    "네이버": "NAVER",
+    "카카오톡": "카카오",
+    "기아차": "기아",
+    "현대차": "현대자동차",
+    "kt": "케이티",
+}
+
+
 def search_listed_companies(api_key: str, query: str, limit: int = 10) -> list[dict[str, str]]:
-    """상장사 이름 부분검색. startswith 우선, 그다음 부분일치. → [{name, ticker}]."""
+    """상장사 이름 부분검색. 별칭 우선 → startswith → 부분일치. → [{name, ticker}]."""
     q = query.strip()
     if not q:
         return []
     mapping = _load_stock_code_map(api_key)  # {회사명: stock_code}
+
+    aliased: list[dict[str, str]] = []
+    alias_target = _SEARCH_ALIASES.get(q.lower())
+    if alias_target and alias_target in mapping:
+        aliased.append({"name": alias_target, "ticker": mapping[alias_target]})
+
     starts: list[dict[str, str]] = []
     contains: list[dict[str, str]] = []
+    seen_tickers = {a["ticker"] for a in aliased}
     for name, code in mapping.items():
+        if code in seen_tickers:
+            continue
         if name.startswith(q):
             starts.append({"name": name, "ticker": code})
         elif q in name:
             contains.append({"name": name, "ticker": code})
     starts.sort(key=lambda m: len(m["name"]))
-    return (starts + contains)[:limit]
+    return (aliased + starts + contains)[:limit]
 
 
 def _load_corp_code_map(api_key: str) -> dict[str, str]:
