@@ -3,6 +3,7 @@
 import { RefreshCw, Star } from "lucide-react";
 import type { StockPrice } from "@/lib/types";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { GlossaryTooltip } from "@/components/learn/GlossaryTooltip";
 
 function fmt(v: number) {
   return v.toLocaleString("ko-KR");
@@ -99,14 +100,18 @@ export function StockLivePrice({ data, isFetching, updatedAt, onRefresh }: Props
           <p className="text-sm font-semibold text-[#191F28]">{fmt(data.low)}</p>
         </div>
         <div className="bg-[#F9FAFB] rounded-xl p-3">
-          <p className="text-xs text-[#9CA3AF] mb-1">거래량</p>
+          <p className="text-xs text-[#9CA3AF] mb-1 flex items-center gap-1">
+            거래량 <GlossaryTooltip term="거래량" />
+          </p>
           <p className="text-sm font-semibold text-[#191F28]">{fmt(data.volume)}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mt-3">
         <div className="bg-[#F9FAFB] rounded-xl p-3">
-          <p className="text-xs text-[#9CA3AF] mb-1">52주 최고</p>
+          <p className="text-xs text-[#9CA3AF] mb-1 flex items-center gap-1">
+            52주 최고 <GlossaryTooltip term="52주 최고·최저" />
+          </p>
           <p className="text-sm font-semibold text-[#191F28]">{fmt(data.w52_high)}원</p>
         </div>
         <div className="bg-[#F9FAFB] rounded-xl p-3">

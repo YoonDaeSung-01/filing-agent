@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/", label: "재무 Q&A" },
   { href: "/stocks", label: "주가" },
+  { href: "/learn", label: "학습" },
 ];
 
 export function Header() {

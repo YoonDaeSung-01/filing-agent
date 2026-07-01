@@ -1,6 +1,7 @@
 "use client";
 
 import { useBalance } from "@/hooks/usePaper";
+import { GlossaryTooltip } from "@/components/learn/GlossaryTooltip";
 
 function fmt(v: number) {
   return v.toLocaleString("ko-KR");
@@ -44,15 +45,21 @@ export function PortfolioCard() {
 
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="bg-[#F9FAFB] rounded-xl p-3">
-          <p className="text-xs text-[#9CA3AF] mb-1">예수금</p>
+          <p className="text-xs text-[#9CA3AF] mb-1 flex items-center gap-1">
+            예수금 <GlossaryTooltip term="예수금" />
+          </p>
           <p className="text-sm font-semibold text-[#191F28]">{fmt(data.cash)}</p>
         </div>
         <div className="bg-[#F9FAFB] rounded-xl p-3">
-          <p className="text-xs text-[#9CA3AF] mb-1">총 평가금액</p>
+          <p className="text-xs text-[#9CA3AF] mb-1 flex items-center gap-1">
+            총 평가금액 <GlossaryTooltip term="평가금액" />
+          </p>
           <p className="text-sm font-semibold text-[#191F28]">{fmt(data.eval_amount)}</p>
         </div>
         <div className="bg-[#F9FAFB] rounded-xl p-3">
-          <p className="text-xs text-[#9CA3AF] mb-1">평가손익</p>
+          <p className="text-xs text-[#9CA3AF] mb-1 flex items-center gap-1">
+            평가손익 <GlossaryTooltip term="평가손익" />
+          </p>
           <p className="text-sm font-semibold" style={{ color }}>
             {up ? "+" : ""}
             {fmt(data.pnl)}
