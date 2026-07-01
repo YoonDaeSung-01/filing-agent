@@ -1,53 +1,73 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { addWatchlistDb, fetchWatchlistDb, removeWatchlistDb } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
+// 프론트 소비 컴포넌트(WatchlistBar 등)와의 호환을 위한 얕은 뷰 모델.
+// 실체는 백엔드 DB(watchlist 테이블) — AP-3.
 export interface WatchlistItem {
   name: string;
   addedAt: number;
 }
 
-const STORAGE_KEY = "filing-agent-watchlist";
-const MAX_ITEMS = 30;
-
 export function useWatchlist() {
-  const [items, setItems] = useState<WatchlistItem[]>([]);
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
+  const qc = useQueryClient();
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
-    } catch {
-      // localStorage 없는 환경에선 무시
-    }
-  }, []);
+  const query = useQuery({
+    queryKey: ["watchlist-db"],
+    queryFn: fetchWatchlistDb,
+    enabled: isAuthenticated,
+  });
 
-  const persist = useCallback((next: WatchlistItem[]) => {
-    setItems(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      /* 무시 */
-    }
-  }, []);
+  const items: WatchlistItem[] = (query.data ?? []).map((w) => ({
+    name: w.company,
+    addedAt: Date.parse(w.created_at) || 0, // 파싱 실패 시 0(정상 응답이면 발생 안 함) — 렌더 중 비순수 호출 방지
+  }));
 
-  const isWatched = useCallback((name: string) => items.some((i) => i.name === name), [items]);
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["watchlist-db"] });
+
+  const addMutation = useMutation({
+    mutationFn: (company: string) => addWatchlistDb(company),
+    onSuccess: invalidate,
+  });
+
+  const removeByCompany = useMutation({
+    mutationFn: async (company: string) => {
+      const found = (query.data ?? []).find((w) => w.company === company);
+      if (found) await removeWatchlistDb(found.id);
+    },
+    onSuccess: invalidate,
+  });
+
+  const isWatched = useCallback(
+    (name: string) => items.some((i) => i.name === name),
+    [items],
+  );
 
   const toggle = useCallback(
     (name: string) => {
-      if (items.some((i) => i.name === name)) {
-        persist(items.filter((i) => i.name !== name));
-      } else {
-        persist([{ name, addedAt: Date.now() }, ...items].slice(0, MAX_ITEMS));
+      if (!isAuthenticated) {
+        router.push("/login");
+        return;
       }
+      if (isWatched(name)) removeByCompany.mutate(name);
+      else addMutation.mutate(name);
     },
-    [items, persist],
+    [isAuthenticated, isWatched, addMutation, removeByCompany, router],
   );
 
   const remove = useCallback(
-    (name: string) => persist(items.filter((i) => i.name !== name)),
-    [items, persist],
+    (name: string) => {
+      if (!isAuthenticated) return;
+      removeByCompany.mutate(name);
+    },
+    [isAuthenticated, removeByCompany],
   );
 
-  return { items, isWatched, toggle, remove };
+  return { items, isWatched, toggle, remove, isAuthenticated };
 }

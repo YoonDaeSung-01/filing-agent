@@ -213,3 +213,37 @@ export interface TrendError {
 }
 
 export type TrendResponse = FinancialTrend | TrendError;
+
+// ── 인증 (AP-3) ─────────────────────────────────────────────────────────────
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
+export interface MeResponse {
+  email: string;
+  created_at: string;
+}
+
+// ── 관심종목 (백엔드 DB, AP-3) ───────────────────────────────────────────────
+
+export interface WatchlistItemDto {
+  id: number;
+  company: string;
+  ticker: string | null;
+  memo: string | null;
+  created_at: string;
+}
+
+// ── 매매일지 (백엔드 DB, AP-3) ───────────────────────────────────────────────
+
+export interface JournalEntryDto {
+  id: number;
+  company: string;
+  side: "buy" | "sell";
+  qty: number;
+  price: number;
+  reason: string;
+  created_at: string;
+}

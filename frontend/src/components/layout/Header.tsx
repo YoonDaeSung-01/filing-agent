@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogOut, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const TABS = [
   { href: "/", label: "재무 Q&A" },
@@ -11,6 +13,7 @@ const TABS = [
 
 export function Header() {
   const pathname = usePathname();
+  const { isAuthenticated, email, logout } = useAuth();
 
   return (
     <header className="border-b border-border bg-white px-6 py-0">
@@ -23,9 +26,33 @@ export function Header() {
             공시 데이터 기반 재무 분석
           </p>
         </div>
-        <span className="text-xs text-[#6B7280] bg-[#F2F4F6] px-3 py-1.5 rounded-full">
-          ⓘ 투자 조언 아님 · 공시 사실 추출
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#6B7280] bg-[#F2F4F6] px-3 py-1.5 rounded-full">
+            ⓘ 투자 조언 아님 · 공시 사실 추출
+          </span>
+          {isAuthenticated ? (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-xs text-[#6B7280]">
+                <User size={12} />
+                {email}
+              </span>
+              <button
+                onClick={logout}
+                className="flex items-center gap-1 text-xs text-[#6B7280] hover:text-[#F04452] transition-colors px-2 py-1.5 rounded-full hover:bg-[#F2F4F6]"
+              >
+                <LogOut size={12} />
+                로그아웃
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="text-xs font-semibold text-[#3182F6] px-3 py-1.5 rounded-full hover:bg-[#EBF3FF] transition-colors"
+            >
+              로그인
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* 탭 */}

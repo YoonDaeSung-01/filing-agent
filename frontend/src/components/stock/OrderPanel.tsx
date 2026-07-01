@@ -15,7 +15,7 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
   const [qty, setQty] = useState(1);
   const [reason, setReason] = useState("");
   const { mutate, data, isPending, reset } = usePlaceOrder();
-  const { addEntry } = useTradeJournal();
+  const { addEntry, isAuthenticated } = useTradeJournal();
 
   const canSell = heldQty > 0;
   // 파생 상태로 계산 — heldQty/side가 바뀌어도 useEffect 없이 항상 일관됨
@@ -170,7 +170,8 @@ export function OrderPanel({ company, currentPrice, heldQty }: Props) {
       {data && (
         <p className={`text-xs mt-3 ${data.ok ? "text-[#16A34A]" : "text-[#92400E]"}`}>
           {data.ok
-            ? `✓ ${data.message}${data.order_no ? ` (주문번호 ${data.order_no})` : ""} · 매매일지에 기록됨`
+            ? `✓ ${data.message}${data.order_no ? ` (주문번호 ${data.order_no})` : ""}` +
+              (isAuthenticated ? " · 매매일지에 기록됨" : " · 로그인하면 매매일지에 기록됩니다")
             : `⚠️ ${data.message}`}
         </p>
       )}
