@@ -8,8 +8,8 @@ function presets(company: string) {
   return [
     { label: "위험 요인", q: `${company}가 최근 사업보고서에서 밝힌 주요 위험 요인은?` },
     { label: "사업 전략", q: `${company} 사업보고서의 주요 사업 전략을 설명해줘` },
-    { label: "매출액", q: `${company} 2024년 매출액은?` },
-    { label: "영업이익 증감", q: `${company}의 2023년 대비 2024년 영업이익 증감은?` },
+    { label: "매출액", q: `${company} 2025년 매출액은?` },
+    { label: "영업이익 증감", q: `${company}의 2024년 대비 2025년 영업이익 증감은?` },
   ];
 }
 

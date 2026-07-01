@@ -46,7 +46,7 @@ export function useStock(company: string, period = 365, enabled = true) {
 export function useFinancialTrend(
   company: string,
   account: string,
-  years = "2022,2023,2024",
+  years = "2023,2024,2025",
   enabled = true,
 ) {
   return useQuery<TrendResponse, Error>({

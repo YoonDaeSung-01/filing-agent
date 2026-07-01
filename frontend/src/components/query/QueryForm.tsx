@@ -20,7 +20,7 @@ export function QueryForm({
   isPending,
   initialQuestion = "",
   initialCompany = "삼성전자",
-  initialYear = 2024,
+  initialYear = 2025,
 }: QueryFormProps) {
   const [question, setQuestion] = useState(initialQuestion);
   const [company, setCompany] = useState(initialCompany);

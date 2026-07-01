@@ -16,7 +16,7 @@ export default function Home() {
   const [formState, setFormState] = useState({
     question: "",
     company: "삼성전자",
-    year: 2024,
+    year: 2025,
   });
 
   const handleSubmit = (question: string, company: string, year: number) => {
@@ -30,7 +30,7 @@ export default function Home() {
     setFormState({
       question: item.question,
       company: item.company ?? "삼성전자",
-      year: item.year ?? 2024,
+      year: item.year ?? 2025,
     });
     reset();
   };

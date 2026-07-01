@@ -25,4 +25,4 @@ TARGET_ACCOUNTS: list[str] = [
     "부채총계",
 ]
 
-TARGET_YEAR: int = 2024
+TARGET_YEAR: int = 2025

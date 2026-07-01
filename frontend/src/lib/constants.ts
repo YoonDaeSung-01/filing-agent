@@ -25,7 +25,7 @@ export const CANONICAL_ACCOUNTS = [
   "자본총계",
 ] as const;
 
-export const TARGET_YEARS = [2022, 2023, 2024] as const;
+export const TARGET_YEARS = [2023, 2024, 2025] as const;
 
 // 빠른 질문 프리셋 — QuickQueries 컴포넌트에서 사용
 export interface QuickQuery {

@@ -9,8 +9,8 @@ import { GuardrailNotice } from "./GuardrailNotice";
 import { SourcePanel } from "./SourcePanel";
 
 const EXAMPLE_QUESTIONS = [
-  { icon: "📊", text: "삼성전자 2024년 매출액은?" },
-  { icon: "📈", text: "SK하이닉스 2023 대비 2024년 영업이익 증감은?" },
+  { icon: "📊", text: "삼성전자 2025년 매출액은?" },
+  { icon: "📈", text: "SK하이닉스 2024 대비 2025년 영업이익 증감은?" },
   { icon: "📄", text: "현대자동차 2024년 사업보고서 주요 위험 요인은?" },
 ];
 

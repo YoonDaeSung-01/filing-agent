@@ -231,11 +231,11 @@ def get_stock_intraday(company: str) -> dict[str, Any]:
 def get_financial_trend(
     company: str,
     account: str,
-    years: str = Query(default="2022,2023,2024"),
+    years: str = Query(default="2023,2024,2025"),
 ) -> dict[str, Any]:
     """다년도 재무 추이. 프론트 차트 렌더용. 에이전트 미경유 직통.
 
-    years: 콤마 구분 연도 목록 (예: "2022,2023,2024")
+    years: 콤마 구분 연도 목록 (예: "2023,2024,2025")
     """
     from filing_agent.agent.tools import _canonical, _get_corp_code, _synonyms_for
 
