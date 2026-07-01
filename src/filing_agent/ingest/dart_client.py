@@ -98,6 +98,23 @@ def resolve_stock_code(api_key: str, name: str) -> str | None:
     return _load_stock_code_map(api_key).get(name)
 
 
+def search_listed_companies(api_key: str, query: str, limit: int = 10) -> list[dict[str, str]]:
+    """상장사 이름 부분검색. startswith 우선, 그다음 부분일치. → [{name, ticker}]."""
+    q = query.strip()
+    if not q:
+        return []
+    mapping = _load_stock_code_map(api_key)  # {회사명: stock_code}
+    starts: list[dict[str, str]] = []
+    contains: list[dict[str, str]] = []
+    for name, code in mapping.items():
+        if name.startswith(q):
+            starts.append({"name": name, "ticker": code})
+        elif q in name:
+            contains.append({"name": name, "ticker": code})
+    starts.sort(key=lambda m: len(m["name"]))
+    return (starts + contains)[:limit]
+
+
 def _load_corp_code_map(api_key: str) -> dict[str, str]:
     cached = _read_json_cache(_CORP_CODE_CACHE)
     if cached is not None:

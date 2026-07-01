@@ -4,6 +4,7 @@ import type {
   BalanceResponse,
   OrderRequest,
   OrderResult,
+  SearchResult,
   StockPriceResponse,
   StockResponse,
   TrendResponse,
@@ -45,6 +46,14 @@ export async function fetchStockPrice(company: string): Promise<StockPriceRespon
   const res = await fetch(`${BASE_URL}/stock/price?company=${encodeURIComponent(company)}`);
   if (!res.ok) throw new Error(`현재가 API 오류: ${res.status}`);
   return res.json() as Promise<StockPriceResponse>;
+}
+
+export async function searchStocks(q: string): Promise<SearchResult[]> {
+  if (!q.trim()) return [];
+  const res = await fetch(`${BASE_URL}/stock/search?q=${encodeURIComponent(q)}&limit=8`);
+  if (!res.ok) return [];
+  const data = (await res.json()) as { results?: SearchResult[] };
+  return data.results ?? [];
 }
 
 export async function fetchBalance(): Promise<BalanceResponse> {

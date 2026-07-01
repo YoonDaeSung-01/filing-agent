@@ -7,8 +7,14 @@ import { StockLivePrice } from "@/components/stock/StockLivePrice";
 import { StockAIPanel } from "@/components/stock/StockAIPanel";
 import { OrderPanel } from "@/components/stock/OrderPanel";
 import { PortfolioCard } from "@/components/stock/PortfolioCard";
+import { SearchBox } from "@/components/stock/SearchBox";
 import { useStock, useStockPrice } from "@/hooks/useStock";
+import { useBalance } from "@/hooks/usePaper";
 import { TARGET_COMPANIES } from "@/lib/constants";
+
+function fmt(v: number) {
+  return v.toLocaleString("ko-KR");
+}
 
 const PERIOD_OPTIONS = [
   { label: "1개월", days: 30 },
@@ -25,6 +31,7 @@ export default function StocksPage() {
   // 한투 실시간 현재가(요약, 5초 폴링) + FDR 과거 차트(기간별)
   const price = useStockPrice(company);
   const chart = useStock(company, period);
+  const balance = useBalance();
 
   return (
     <div className="flex flex-col h-screen">
@@ -32,19 +39,39 @@ export default function StocksPage() {
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#F9FAFB]">
         <div className="max-w-6xl mx-auto space-y-4">
-          {/* 컨트롤 바 */}
+          {/* 상단: 잔고 요약 바 */}
+          {balance.data && balance.data.found && (
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 bg-white border border-border rounded-2xl px-5 py-3 shadow-card">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#9CA3AF]">예수금</span>
+                <span className="text-sm font-bold text-[#191F28]">
+                  {fmt(balance.data.cash)}원
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#9CA3AF]">총 평가</span>
+                <span className="text-sm font-bold text-[#191F28]">
+                  {fmt(balance.data.eval_amount)}원
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#9CA3AF]">평가손익</span>
+                <span
+                  className="text-sm font-bold"
+                  style={{ color: balance.data.pnl >= 0 ? "#F04452" : "#1677FF" }}
+                >
+                  {balance.data.pnl >= 0 ? "+" : ""}
+                  {fmt(balance.data.pnl)} ({balance.data.pnl >= 0 ? "+" : ""}
+                  {balance.data.pnl_rate}%)
+                </span>
+              </div>
+              <span className="text-[11px] text-[#9CA3AF] ml-auto">모의투자 · 가상자금</span>
+            </div>
+          )}
+
+          {/* 컨트롤 바 — 검색 + 기간 */}
           <div className="flex flex-wrap gap-3 items-center">
-            <select
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              className="flex-1 min-w-[140px] max-w-xs text-sm font-medium bg-white border border-border rounded-xl px-3 py-2.5 text-[#191F28] focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
-            >
-              {TARGET_COMPANIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <SearchBox company={company} onSelect={setCompany} />
 
             <div className="flex gap-1.5 bg-white border border-border rounded-xl p-1">
               {PERIOD_OPTIONS.map((opt) => (
@@ -89,7 +116,12 @@ export default function StocksPage() {
                 </div>
               )}
               {price.data && price.data.found && (
-                <StockLivePrice data={price.data} isFetching={price.isFetching} />
+                <StockLivePrice
+                  data={price.data}
+                  isFetching={price.isFetching}
+                  updatedAt={price.dataUpdatedAt}
+                  onRefresh={() => price.refetch()}
+                />
               )}
 
               {/* 과거 차트 */}

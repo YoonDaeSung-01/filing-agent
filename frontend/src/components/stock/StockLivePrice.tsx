@@ -1,23 +1,32 @@
 "use client";
 
+import { RefreshCw } from "lucide-react";
 import type { StockPrice } from "@/lib/types";
 
 function fmt(v: number) {
   return v.toLocaleString("ko-KR");
 }
 
+function clock(ts?: number) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  return d.toLocaleTimeString("ko-KR", { hour12: false });
+}
+
 interface Props {
   data: StockPrice;
   isFetching: boolean;
+  updatedAt?: number;
+  onRefresh?: () => void;
 }
 
-export function StockLivePrice({ data, isFetching }: Props) {
+export function StockLivePrice({ data, isFetching, updatedAt, onRefresh }: Props) {
   const up = data.change >= 0;
   const color = up ? "#F04452" : "#1677FF"; // 토스: 상승=빨강, 하락=파랑
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-card border border-border">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-lg font-bold text-[#191F28]">{data.company}</p>
           <p className="text-xs text-[#9CA3AF] mt-0.5 flex items-center gap-1.5">
@@ -32,9 +41,18 @@ export function StockLivePrice({ data, isFetching }: Props) {
             </span>
           </p>
         </div>
-        <span className="text-xs text-[#6B7280] bg-[#F2F4F6] px-2.5 py-1 rounded-full">
-          ⓘ 사실 데이터 · 투자 권유 아님
-        </span>
+        <div className="flex flex-col items-end gap-1.5">
+          <span className="text-xs text-[#6B7280] bg-[#F2F4F6] px-2.5 py-1 rounded-full">
+            ⓘ 사실 데이터 · 투자 권유 아님
+          </span>
+          <button
+            onClick={onRefresh}
+            className="flex items-center gap-1 text-[11px] text-[#9CA3AF] hover:text-[#3182F6] transition-colors"
+          >
+            <RefreshCw size={11} className={isFetching ? "animate-spin" : ""} />
+            {updatedAt ? `${clock(updatedAt)} 갱신` : "새로고침"}
+          </button>
+        </div>
       </div>
 
       <div className="mb-2">

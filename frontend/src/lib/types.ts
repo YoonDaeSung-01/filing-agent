@@ -98,6 +98,11 @@ export interface StockError {
 
 export type StockResponse = StockSummary | StockError;
 
+export interface SearchResult {
+  name: string;
+  ticker: string;
+}
+
 // 한투 KIS 실시간 현재가 (사실만; PER/PBR 등 해석지표 제외)
 export interface StockPrice {
   found: true;

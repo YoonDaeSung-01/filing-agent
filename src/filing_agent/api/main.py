@@ -124,6 +124,16 @@ def get_stock(
         return {"found": False, "reason": str(exc)}
 
 
+# ── GET /stock/search (상장사 검색) ──────────────────────────────────────────
+
+@app.get("/stock/search")
+def search_stocks(q: str, limit: int = 10) -> dict[str, Any]:
+    """상장사 이름으로 검색(부분일치). 종목 선택 자동완성용."""
+    settings = get_settings()
+    results = dart_client.search_listed_companies(settings.dart_api_key, q, limit=limit)
+    return {"results": results}
+
+
 # ── GET /stock/price (한투 실시간 현재가) ────────────────────────────────────
 
 @app.get("/stock/price")

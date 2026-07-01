@@ -35,13 +35,17 @@ export function StockChart({ data, period }: Props) {
   const maxClose = Math.max(...data.map((d) => d.close));
   const padding = (maxClose - minClose) * 0.05;
 
+  // 기간 등락에 따라 색 구분 (한국식: 상승=빨강, 하락=파랑)
+  const up = data.length > 1 && data[data.length - 1].close >= data[0].close;
+  const color = up ? "#F04452" : "#1677FF";
+
   return (
     <ResponsiveContainer width="100%" height={240}>
       <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id="stockGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#3182F6" stopOpacity={0.18} />
-            <stop offset="95%" stopColor="#3182F6" stopOpacity={0} />
+            <stop offset="5%" stopColor={color} stopOpacity={0.18} />
+            <stop offset="95%" stopColor={color} stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F6" vertical={false} />
@@ -74,11 +78,11 @@ export function StockChart({ data, period }: Props) {
         <Area
           type="monotone"
           dataKey="close"
-          stroke="#3182F6"
+          stroke={color}
           strokeWidth={2}
           fill="url(#stockGradient)"
           dot={false}
-          activeDot={{ r: 4, fill: "#3182F6" }}
+          activeDot={{ r: 4, fill: color }}
         />
       </AreaChart>
     </ResponsiveContainer>
