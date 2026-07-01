@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 const TABS = [
   { href: "/", label: "재무 Q&A" },
   { href: "/stocks", label: "주가" },
+  { href: "/watchlist", label: "관심종목" },
   { href: "/learn", label: "학습" },
 ];
 

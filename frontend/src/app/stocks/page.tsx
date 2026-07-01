@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { StockChart } from "@/components/stock/StockChart";
 import { StockLivePrice } from "@/components/stock/StockLivePrice";
@@ -29,7 +30,17 @@ const PERIOD_OPTIONS = [
 ];
 
 export default function StocksPage() {
-  const [company, setCompany] = useState<string>(TARGET_COMPANIES[0]);
+  return (
+    <Suspense fallback={<div className="flex flex-col h-screen" />}>
+      <StocksContent />
+    </Suspense>
+  );
+}
+
+function StocksContent() {
+  const searchParams = useSearchParams();
+  const initialCompany = searchParams.get("company") || TARGET_COMPANIES[0];
+  const [company, setCompany] = useState<string>(initialCompany);
   const [period, setPeriod] = useState(365);
 
   // 실시간(당일 분봉)은 한투, 그 외 기간은 FDR 일봉

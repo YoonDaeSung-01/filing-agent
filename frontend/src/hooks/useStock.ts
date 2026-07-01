@@ -21,13 +21,14 @@ export function useIntraday(company: string, enabled: boolean) {
   });
 }
 
-// 한투 실시간 현재가 — 5초 폴링(실시간 근사)
-export function useStockPrice(company: string) {
+// 한투 실시간 현재가. 기본 5초 폴링(단일 종목 상세 화면 기준).
+// intervalMs로 조절 — 여러 종목을 동시에 보는 대시보드에서는 더 느리게(한투 호출량 보호).
+export function useStockPrice(company: string, intervalMs = 5000) {
   return useQuery<StockPriceResponse, Error>({
     queryKey: ["stock-price", company],
     queryFn: () => fetchStockPrice(company),
     enabled: !!company,
-    refetchInterval: 5000,
+    refetchInterval: intervalMs,
     staleTime: 0,
     retry: 1,
   });
