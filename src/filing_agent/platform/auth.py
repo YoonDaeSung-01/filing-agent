@@ -39,17 +39,17 @@ def verify_password(raw: str, hashed: str) -> bool:
         return False
 
 
-def create_access_token(email: str, settings: Settings | None = None) -> str:
+def create_access_token(username: str, settings: Settings | None = None) -> str:
     cfg = settings or get_settings()
     if not cfg.jwt_secret:
         raise RuntimeError("JWT_SECRET 이 설정되지 않았습니다(.env).")
     expire = datetime.now(UTC) + timedelta(minutes=cfg.jwt_expire_min)
-    payload: dict[str, Any] = {"sub": email, "exp": expire}
+    payload: dict[str, Any] = {"sub": username, "exp": expire}
     return jwt.encode(payload, cfg.jwt_secret, algorithm=_ALGORITHM)
 
 
 def decode_access_token(token: str, settings: Settings | None = None) -> str:
-    """토큰에서 email(sub)을 반환한다. 유효하지 않으면 JWTError."""
+    """토큰에서 username(sub)을 반환한다. 유효하지 않으면 JWTError."""
     cfg = settings or get_settings()
     payload = jwt.decode(token, cfg.jwt_secret, algorithms=[_ALGORITHM])
     return str(payload["sub"])
@@ -65,11 +65,11 @@ def get_current_user(creds: _BearerDep, db: _DbDep) -> User:
     if creds is None:
         raise unauthorized
     try:
-        email = decode_access_token(creds.credentials)
+        username = decode_access_token(creds.credentials)
     except JWTError as exc:
         raise unauthorized from exc
 
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise unauthorized
     return user

@@ -23,6 +23,9 @@ _TR_CURRENT_PRICE = "FHKST01010100"  # 국내주식 현재가 시세
 
 _INTRADAY_PATH = "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice"
 _TR_INTRADAY = "FHKST03010200"  # 당일 분봉
+
+_RANKING_PATH = "/uapi/domestic-stock/v1/ranking/fluctuation"
+_TR_RANKING = "FHPST01700000"  # 국내주식 등락률 순위(시장 전체)
 _MKT_OPEN = "090000"
 _MKT_CLOSE = "153000"
 
@@ -149,3 +152,54 @@ def get_intraday(ticker: str, settings: Settings | None = None, max_pages: int =
             }
         )
     return items
+
+
+def get_market_movers(direction: str, settings: Settings | None = None) -> list[dict]:
+    """시장 전체 등락률 순위(사실만). direction: "up"(상승률 상위) | "down"(하락률 상위).
+
+    한투 국내주식 등락률 순위 API — 시가총액·업종 제한 없는 전체 시장 대상.
+    반환: [{name, ticker, price, change, change_pct}, ...] (상위 30, 순위순)
+    """
+    cfg = settings or get_settings()
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {get_access_token(cfg)}",
+        "appkey": cfg.kis_app_key,
+        "appsecret": cfg.kis_app_secret,
+        "tr_id": _TR_RANKING,
+        "custtype": "P",
+    }
+    params = {
+        "fid_rsfl_rate2": "",
+        "fid_cond_mrkt_div_code": "J",
+        "fid_cond_scr_div_code": "20170",
+        "fid_input_iscd": "0000",
+        "fid_rank_sort_cls_code": "0" if direction == "up" else "1",
+        "fid_input_cnt_1": "0",
+        "fid_prc_cls_code": "0",
+        "fid_input_price_1": "",
+        "fid_input_price_2": "",
+        "fid_vol_cnt": "",
+        "fid_trgt_cls_code": "0",
+        "fid_trgt_exls_cls_code": "0",
+        "fid_div_cls_code": "0",
+        "fid_rsfl_rate1": "",
+    }
+    resp = httpx.get(
+        f"{cfg.kis_base_url}{_RANKING_PATH}", headers=headers, params=params, timeout=_TIMEOUT_SEC
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    if payload.get("rt_cd") != "0":
+        raise KisApiError(f"등락률 순위 조회 실패(msg_cd={payload.get('msg_cd')}).")
+
+    return [
+        {
+            "name": row.get("hts_kor_isnm", ""),
+            "ticker": row.get("stck_shrn_iscd", ""),
+            "price": _to_int(row.get("stck_prpr")),
+            "change": _to_int(row.get("prdy_vrss")),
+            "change_pct": _to_float(row.get("prdy_ctrt")),
+        }
+        for row in (payload.get("output") or [])
+    ]

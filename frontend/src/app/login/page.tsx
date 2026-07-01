@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Header } from "@/components/layout/Header";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
 
   const {
@@ -31,15 +31,21 @@ export default function LoginPage() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || pending) return;
-    const args = { email, password };
-    if (isRegister) register(args);
-    else login(args);
+    if (!username || !password || pending) return;
+    if (isRegister) {
+      if (!name) return;
+      register({ username, name, password });
+    } else {
+      login({ username, password });
+    }
   };
 
   return (
     <div className="flex flex-col h-screen">
-      <Header />
+      <header className="border-b border-border bg-white px-6 py-4">
+        <h1 className="text-xl font-bold text-[#191F28] tracking-tight">DART Filing Agent</h1>
+        <p className="text-sm text-[#6B7280] mt-0.5">공시 데이터 기반 재무 분석</p>
+      </header>
       <main className="flex-1 flex items-center justify-center p-4 bg-[#F9FAFB]">
         <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-card border border-border">
           <div className="flex gap-1 bg-[#F2F4F6] rounded-xl p-1 mb-6">
@@ -65,16 +71,32 @@ export default function LoginPage() {
 
           <form onSubmit={submit} className="space-y-3">
             <div>
-              <label className="text-xs text-[#6B7280] mb-1 block">이메일</label>
+              <label className="text-xs text-[#6B7280] mb-1 block">아이디</label>
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                minLength={isRegister ? 3 : undefined}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="영문·숫자"
                 className="w-full text-sm border border-border rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
               />
             </div>
+
+            {isRegister && (
+              <div>
+                <label className="text-xs text-[#6B7280] mb-1 block">이름</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="화면에 OO님으로 표시됩니다"
+                  className="w-full text-sm border border-border rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
+                />
+              </div>
+            )}
+
             <div>
               <label className="text-xs text-[#6B7280] mb-1 block">비밀번호</label>
               <input
@@ -100,8 +122,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-[11px] text-[#9CA3AF] mt-4 text-center leading-relaxed">
-            관심종목·매매일지 저장에만 사용됩니다. 모의투자 자체는 로그인 없이도
-            이용할 수 있습니다.
+            로그인 후 모의투자·관심종목·매매일지를 이용할 수 있습니다.
           </p>
         </div>
       </main>

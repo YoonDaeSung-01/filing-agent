@@ -222,7 +222,8 @@ export interface TokenResponse {
 }
 
 export interface MeResponse {
-  email: string;
+  username: string;
+  name: string;
   created_at: string;
 }
 
@@ -247,3 +248,41 @@ export interface JournalEntryDto {
   reason: string;
   created_at: string;
 }
+
+// ── 시장 대시보드 (관심 종목·전체 시장 순위) ─────────────────────────────────
+
+export interface MarketMover {
+  name: string;
+  ticker: string;
+  price: number;
+  change: number;
+  change_pct: number;
+}
+
+export interface MarketMoversSuccess {
+  found: true;
+  gainers: MarketMover[];
+  losers: MarketMover[];
+}
+
+export type MarketMoversResponse = MarketMoversSuccess | StockError;
+
+export interface SectorStock {
+  company: string;
+  ticker: string;
+  price: number;
+  change: number;
+  change_pct: number;
+}
+
+export interface MarketSector {
+  sector: string;
+  stocks: SectorStock[];
+}
+
+export interface MarketSectorsSuccess {
+  found: true;
+  sectors: MarketSector[];
+}
+
+export type MarketSectorsResponse = MarketSectorsSuccess | StockError;

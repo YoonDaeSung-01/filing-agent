@@ -14,7 +14,7 @@ const TABS = [
 
 export function Header() {
   const pathname = usePathname();
-  const { isAuthenticated, email, logout } = useAuth();
+  const { isAuthenticated, name, logout } = useAuth();
 
   return (
     <header className="border-b border-border bg-white px-6 py-0">
@@ -35,7 +35,7 @@ export function Header() {
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 text-xs text-[#6B7280]">
                 <User size={12} />
-                {email}
+                {name}님
               </span>
               <button
                 onClick={logout}

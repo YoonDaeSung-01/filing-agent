@@ -65,9 +65,14 @@ def _write_cache(query: str, items: list[dict]) -> None:
 
 
 def fetch_news(query: str, display: int = 10, settings: Settings | None = None) -> list[dict]:
-    """종목명(또는 임의 쿼리)로 최신 뉴스를 조회한다. 사실 요약만(호재/악재 판정 없음).
+    """종목명(또는 임의 쿼리)로 관련 뉴스를 조회한다. 사실 요약만(호재/악재 판정 없음).
 
-    반환: [{title, link, description, pub_date, source}, ...] (최신순)
+    sort=sim(관련도순)을 쓴다. date(최신순)는 검색어가 기사 어디에든 스치기만 해도
+    잡혀 "카카오게임즈"·"카카오톡" 같은 별개 맥락 기사가 섞이는 문제가 실측으로
+    확인됐다(예: "카카오" 검색에 무관한 연애 기사가 나옴) — sim이 실제 관련성이
+    높았다. 그래도 방어적으로 회사명이 제목·본문에 없는 결과는 한 번 더 거른다.
+
+    반환: [{title, link, description, pub_date, source}, ...] (관련도순)
     """
     cached = _read_cache(query)
     if cached is not None:
@@ -81,12 +86,13 @@ def fetch_news(query: str, display: int = 10, settings: Settings | None = None) 
         "X-Naver-Client-Id": cfg.naver_client_id,
         "X-Naver-Client-Secret": cfg.naver_client_secret,
     }
-    params = {"query": query, "display": display, "sort": "date"}
+    # 관련도순 요청 시 필터링 여지를 남기려 조회는 넉넉히, 최종 개수는 아래서 자른다.
+    params = {"query": query, "display": min(display * 2, 100), "sort": "sim"}
     resp = httpx.get(_NEWS_URL, headers=headers, params=params, timeout=_TIMEOUT_SEC)
     resp.raise_for_status()
     payload: dict[str, Any] = resp.json()
 
-    items = [
+    all_items = [
         {
             "title": _clean(it.get("title", "")),
             "link": it.get("originallink") or it.get("link", ""),
@@ -96,5 +102,8 @@ def fetch_news(query: str, display: int = 10, settings: Settings | None = None) 
         }
         for it in payload.get("items", [])
     ]
+    items = [
+        it for it in all_items if query in it["title"] or query in it["description"]
+    ][:display]
     _write_cache(query, items)
     return items

@@ -41,8 +41,10 @@ def client(monkeypatch):
     app.dependency_overrides.clear()
 
 
-def _register(client, email="user@example.com", password="test-pw-12345") -> str:
-    r = client.post("/auth/register", json={"email": email, "password": password})
+def _register(client, username="user1", password="test-pw-12345", name="테스터") -> str:
+    r = client.post(
+        "/auth/register", json={"username": username, "name": name, "password": password}
+    )
     assert r.status_code == 200, r.text
     return str(r.json()["access_token"])
 
@@ -51,31 +53,31 @@ def test_register_then_me(client):
     token = _register(client)
     r = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
-    assert r.json()["email"] == "user@example.com"
+    assert r.json()["username"] == "user1"
+    assert r.json()["name"] == "테스터"
 
 
-def test_register_duplicate_email_409(client):
+def test_register_duplicate_username_409(client):
     _register(client)
     r = client.post(
-        "/auth/register", json={"email": "user@example.com", "password": "another-pw-123"}
+        "/auth/register",
+        json={"username": "user1", "name": "다른사람", "password": "another-pw-123"},
     )
     assert r.status_code == 409
 
 
 def test_register_short_password_400(client):
-    r = client.post("/auth/register", json={"email": "a@example.com", "password": "short"})
+    r = client.post(
+        "/auth/register", json={"username": "user2", "name": "테스터", "password": "short"}
+    )
     assert r.status_code == 400
 
 
 def test_login_success_and_wrong_password(client):
-    _register(client, email="login@example.com", password="correct-pw-123")
-    ok = client.post(
-        "/auth/login", json={"email": "login@example.com", "password": "correct-pw-123"}
-    )
+    _register(client, username="loginuser", password="correct-pw-123")
+    ok = client.post("/auth/login", json={"username": "loginuser", "password": "correct-pw-123"})
     assert ok.status_code == 200
-    bad = client.post(
-        "/auth/login", json={"email": "login@example.com", "password": "wrong-pw-123"}
-    )
+    bad = client.post("/auth/login", json={"username": "loginuser", "password": "wrong-pw-123"})
     assert bad.status_code == 401
 
 
@@ -111,8 +113,8 @@ def test_watchlist_duplicate_company_409(client):
 
 
 def test_delete_others_watchlist_404(client):
-    token_a = _register(client, email="a@example.com")
-    token_b = _register(client, email="b@example.com")
+    token_a = _register(client, username="userA")
+    token_b = _register(client, username="userB")
     add = client.post(
         "/watchlist", json={"company": "삼성전자"}, headers={"Authorization": f"Bearer {token_a}"}
     )

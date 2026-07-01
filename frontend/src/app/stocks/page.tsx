@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Header } from "@/components/layout/Header";
 import { StockChart } from "@/components/stock/StockChart";
 import { StockLivePrice } from "@/components/stock/StockLivePrice";
@@ -12,13 +13,9 @@ import { JournalCard } from "@/components/stock/JournalCard";
 import { NewsPanel } from "@/components/stock/NewsPanel";
 import { SearchBox } from "@/components/stock/SearchBox";
 import { WatchlistBar } from "@/components/stock/WatchlistBar";
+import { MarketDashboard } from "@/components/stock/MarketDashboard";
 import { useStock, useStockPrice, useIntraday } from "@/hooks/useStock";
 import { useBalance } from "@/hooks/usePaper";
-import { TARGET_COMPANIES } from "@/lib/constants";
-
-function fmt(v: number) {
-  return v.toLocaleString("ko-KR");
-}
 
 const PERIOD_OPTIONS = [
   { label: "실시간", days: 0 }, // 당일 분봉
@@ -39,9 +36,27 @@ export default function StocksPage() {
 
 function StocksContent() {
   const searchParams = useSearchParams();
-  const initialCompany = searchParams.get("company") || TARGET_COMPANIES[0];
+  const selectedCompany = searchParams.get("company");
+
+  // 종목 지정 없이 /stocks 진입 → 시장 대시보드(상승/하락 순위·분야별 시세·내 모의투자 요약)
+  if (!selectedCompany) {
+    return (
+      <div className="flex flex-col h-screen">
+        <Header />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#F9FAFB]">
+          <MarketDashboard />
+        </main>
+      </div>
+    );
+  }
+
+  // key로 강제 리마운트 — 대시보드에서 다른 종목 클릭 시 상태가 확실히 초기화됨
+  return <StockDetail key={selectedCompany} initialCompany={selectedCompany} />;
+}
+
+function StockDetail({ initialCompany }: { initialCompany: string }) {
   const [company, setCompany] = useState<string>(initialCompany);
-  const [period, setPeriod] = useState(365);
+  const [period, setPeriod] = useState(0); // 디폴트: 실시간
 
   // 실시간(당일 분봉)은 한투, 그 외 기간은 FDR 일봉
   const isIntraday = period === 0;
@@ -69,38 +84,14 @@ function StocksContent() {
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#F9FAFB]">
         <div className="max-w-6xl mx-auto space-y-4">
-          {/* 상단: 잔고 요약 바 */}
-          {balance.data && balance.data.found && (
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 bg-white border border-border rounded-2xl px-5 py-3 shadow-card">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#9CA3AF]">예수금</span>
-                <span className="text-sm font-bold text-[#191F28]">
-                  {fmt(balance.data.cash)}원
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#9CA3AF]">총 평가</span>
-                <span className="text-sm font-bold text-[#191F28]">
-                  {fmt(balance.data.eval_amount)}원
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#9CA3AF]">평가손익</span>
-                <span
-                  className="text-sm font-bold"
-                  style={{ color: balance.data.pnl >= 0 ? "#F04452" : "#1677FF" }}
-                >
-                  {balance.data.pnl >= 0 ? "+" : ""}
-                  {fmt(balance.data.pnl)} ({balance.data.pnl >= 0 ? "+" : ""}
-                  {balance.data.pnl_rate}%)
-                </span>
-              </div>
-              <span className="text-[11px] text-[#9CA3AF] ml-auto">모의투자 · 가상자금</span>
-            </div>
-          )}
-
-          {/* 컨트롤 바 — 검색 + 기간 */}
+          {/* 대시보드로 돌아가기 + 컨트롤 바 */}
           <div className="flex flex-wrap gap-3 items-center">
+            <Link
+              href="/stocks"
+              className="text-xs font-semibold text-[#6B7280] hover:text-[#3182F6] px-3 py-2.5 rounded-xl border border-border bg-white transition-colors"
+            >
+              ← 대시보드
+            </Link>
             <SearchBox company={company} onSelect={setCompany} />
 
             <div className="flex gap-1.5 bg-white border border-border rounded-xl p-1">
@@ -184,7 +175,7 @@ function StocksContent() {
               {/* 관련 뉴스 */}
               <NewsPanel key={company} company={company} />
 
-              {/* 내 모의투자 (포트폴리오) */}
+              {/* 내 모의투자 (보유 종목) */}
               <PortfolioCard />
               <JournalCard />
 

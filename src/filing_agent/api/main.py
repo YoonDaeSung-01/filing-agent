@@ -8,6 +8,7 @@
 """
 
 import logging
+import time
 from typing import Any
 
 from fastapi import FastAPI, Query
@@ -240,6 +241,77 @@ def get_news(company: str, display: int = 10) -> dict[str, Any]:
     except Exception as exc:
         logger.exception("뉴스 조회 실패: company=%r", company)
         return {"found": False, "reason": str(exc)}
+
+
+# ── GET /market/movers (시장 전체 등락률 순위) ────────────────────────────────
+
+@app.get("/market/movers")
+def get_market_movers_endpoint() -> dict[str, Any]:
+    """시장 전체 상승률·하락률 상위(사실만). 순위 ≠ 추천."""
+    gainers = _fetch_movers_with_retry("up")
+    time.sleep(0.15)  # 한투 초당 호출 한도 보호
+    losers = _fetch_movers_with_retry("down")
+    if gainers is None or losers is None:
+        return {"found": False, "reason": "한투 API에서 순위를 가져오지 못했습니다."}
+    return {"found": True, "gainers": gainers, "losers": losers}
+
+
+def _fetch_movers_with_retry(direction: str, attempts: int = 2) -> list[dict] | None:
+    """한투 등락률 순위 조회 — 간헐적 5xx 대응 1회 재시도."""
+    from filing_agent.platform.market.kis_market import get_market_movers
+
+    for attempt in range(attempts):
+        try:
+            return get_market_movers(direction)
+        except Exception:
+            logger.exception("시장 순위 조회 실패(시도 %d/%d)", attempt + 1, attempts)
+            if attempt + 1 >= attempts:
+                return None
+            time.sleep(0.4)
+    return None
+
+
+# ── GET /market/sectors (관심 종목 10개 분야별 시세) ─────────────────────────
+
+@app.get("/market/sectors")
+def get_market_sectors() -> dict[str, Any]:
+    """TARGET_COMPANIES 10개를 분야별로 묶어 현재가와 함께 반환(사실만).
+
+    전체 시장 업종 분류가 아니라 관심 종목 한정 직접 라벨링(SECTOR_MAP 참조).
+    """
+    from filing_agent.ingest.constants import SECTOR_MAP
+
+    settings = get_settings()
+    sectors: list[dict[str, Any]] = []
+    first = True
+    for sector, companies in SECTOR_MAP.items():
+        stocks = []
+        for company in companies:
+            ticker = dart_client.resolve_stock_code(settings.dart_api_key, company)
+            if ticker is None:
+                continue
+            if not first:
+                time.sleep(0.5)  # 한투 초당 호출 한도 보호(연속 호출 실측상 이 정도 간격 필요)
+            first = False
+            price = _fetch_price_with_retry(ticker, settings)
+            if price is not None:
+                stocks.append({"company": company, **price})
+        sectors.append({"sector": sector, "stocks": stocks})
+    return {"found": True, "sectors": sectors}
+
+
+def _fetch_price_with_retry(ticker: str, settings: Any, attempts: int = 2) -> dict[str, Any] | None:
+    """한투 현재가 조회 — 간헐적 5xx 대응 1회 재시도(짧은 백오프)."""
+    from filing_agent.platform.market.kis_market import get_current_price
+
+    for attempt in range(attempts):
+        try:
+            return get_current_price(ticker, settings)
+        except Exception:
+            if attempt + 1 >= attempts:
+                return None
+            time.sleep(0.4)
+    return None
 
 
 # ── GET /financial/trend ─────────────────────────────────────────────────────

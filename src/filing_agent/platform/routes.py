@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -31,12 +31,13 @@ _CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    username: str = Field(min_length=3, max_length=50)
+    name: str = Field(min_length=1, max_length=100)
     password: str
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    username: str
     password: str
 
 
@@ -49,27 +50,27 @@ class TokenResponse(BaseModel):
 def register(req: RegisterRequest, db: _DbDep) -> TokenResponse:
     if len(req.password) < 8:
         raise HTTPException(status_code=400, detail="비밀번호는 8자 이상이어야 합니다.")
-    user = User(email=req.email, pw_hash=hash_password(req.password))
+    user = User(username=req.username, name=req.name, pw_hash=hash_password(req.password))
     db.add(user)
     try:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="이미 등록된 이메일입니다.") from exc
-    return TokenResponse(access_token=create_access_token(req.email))
+        raise HTTPException(status_code=409, detail="이미 등록된 아이디입니다.") from exc
+    return TokenResponse(access_token=create_access_token(req.username))
 
 
 @router.post("/auth/login", response_model=TokenResponse)
 def login(req: LoginRequest, db: _DbDep) -> TokenResponse:
-    user = db.query(User).filter(User.email == req.email).first()
+    user = db.query(User).filter(User.username == req.username).first()
     if user is None or not verify_password(req.password, user.pw_hash):
-        raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
-    return TokenResponse(access_token=create_access_token(req.email))
+        raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 올바르지 않습니다.")
+    return TokenResponse(access_token=create_access_token(req.username))
 
 
 @router.get("/auth/me")
 def me(user: _CurrentUser) -> dict[str, Any]:
-    return {"email": user.email, "created_at": user.created_at.isoformat()}
+    return {"username": user.username, "name": user.name, "created_at": user.created_at.isoformat()}
 
 
 # ── 관심종목 ─────────────────────────────────────────────────────────────────

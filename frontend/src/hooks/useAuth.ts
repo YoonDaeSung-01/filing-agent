@@ -42,14 +42,21 @@ export function useAuth() {
   );
 
   const loginMutation = useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      loginAccount(email, password),
+    mutationFn: ({ username, password }: { username: string; password: string }) =>
+      loginAccount(username, password),
     onSuccess: (res) => afterAuth(res.access_token),
   });
 
   const registerMutation = useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      registerAccount(email, password),
+    mutationFn: ({
+      username,
+      name,
+      password,
+    }: {
+      username: string;
+      name: string;
+      password: string;
+    }) => registerAccount(username, name, password),
     onSuccess: (res) => afterAuth(res.access_token),
   });
 
@@ -62,7 +69,8 @@ export function useAuth() {
 
   return {
     isAuthenticated: hydrated && !!token && !me.isError,
-    email: me.data?.email,
+    username: me.data?.username,
+    name: me.data?.name,
     isLoading: !hydrated || (!!token && me.isLoading),
     login: loginMutation.mutate,
     isLoggingIn: loginMutation.isPending,

@@ -4,6 +4,8 @@ import type {
   BalanceResponse,
   IntradayResponse,
   JournalEntryDto,
+  MarketMoversResponse,
+  MarketSectorsResponse,
   MeResponse,
   NewsResponse,
   OrderRequest,
@@ -66,6 +68,18 @@ export async function fetchStockPrice(company: string): Promise<StockPriceRespon
   return res.json() as Promise<StockPriceResponse>;
 }
 
+export async function fetchMarketMovers(): Promise<MarketMoversResponse> {
+  const res = await fetch(`${BASE_URL}/market/movers`);
+  if (!res.ok) throw new Error(`시장 순위 API 오류: ${res.status}`);
+  return res.json() as Promise<MarketMoversResponse>;
+}
+
+export async function fetchMarketSectors(): Promise<MarketSectorsResponse> {
+  const res = await fetch(`${BASE_URL}/market/sectors`);
+  if (!res.ok) throw new Error(`분야별 시세 API 오류: ${res.status}`);
+  return res.json() as Promise<MarketSectorsResponse>;
+}
+
 export async function fetchNews(company: string, display = 8): Promise<NewsResponse> {
   const params = new URLSearchParams({ company, display: String(display) });
   const res = await fetch(`${BASE_URL}/news?${params}`);
@@ -116,21 +130,25 @@ export async function fetchFinancialTrend(
 
 // ── 인증 ─────────────────────────────────────────────────────────────────────
 
-export async function registerAccount(email: string, password: string): Promise<TokenResponse> {
+export async function registerAccount(
+  username: string,
+  name: string,
+  password: string,
+): Promise<TokenResponse> {
   const res = await fetch(`${BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, name, password }),
   });
   if (!res.ok) return parseError(res, "회원가입에 실패했습니다.");
   return res.json() as Promise<TokenResponse>;
 }
 
-export async function loginAccount(email: string, password: string): Promise<TokenResponse> {
+export async function loginAccount(username: string, password: string): Promise<TokenResponse> {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password }),
   });
   if (!res.ok) return parseError(res, "로그인에 실패했습니다.");
   return res.json() as Promise<TokenResponse>;
