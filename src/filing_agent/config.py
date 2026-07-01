@@ -56,6 +56,21 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"  # 클라우드 무료 티어 기본값
 
+    # ── 한투 KIS (모의투자 vps, 플랫폼 확장) ────────────
+    # 비밀값은 .env 에서만. vps(모의) 전용 — 실전 도메인/키는 쓰지 않는다.
+    kis_app_key: str = ""
+    kis_app_secret: str = ""
+    kis_account_no: str = ""
+    kis_base_url: str = "https://openapivts.koreainvestment.com:29443"  # vps(모의)
+
+    # ── 인증 (JWT, 플랫폼 확장) ─────────────────────────
+    jwt_secret: str = ""
+    jwt_expire_min: int = 60
+
+    # ── 뉴스 (네이버 검색 API, 플랫폼 확장) ─────────────
+    naver_client_id: str = ""
+    naver_client_secret: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
