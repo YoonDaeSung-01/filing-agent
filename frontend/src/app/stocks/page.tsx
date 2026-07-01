@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { StockChart } from "@/components/stock/StockChart";
 import { StockLivePrice } from "@/components/stock/StockLivePrice";
+import { StockAIPanel } from "@/components/stock/StockAIPanel";
 import { useStock, useStockPrice } from "@/hooks/useStock";
 import { TARGET_COMPANIES } from "@/lib/constants";
 
@@ -28,13 +29,13 @@ export default function StocksPage() {
       <Header />
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#F9FAFB]">
-        <div className="max-w-3xl mx-auto space-y-4">
+        <div className="max-w-6xl mx-auto space-y-4">
           {/* 컨트롤 바 */}
           <div className="flex flex-wrap gap-3 items-center">
             <select
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              className="flex-1 min-w-[140px] text-sm font-medium bg-white border border-border rounded-xl px-3 py-2.5 text-[#191F28] focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
+              className="flex-1 min-w-[140px] max-w-xs text-sm font-medium bg-white border border-border rounded-xl px-3 py-2.5 text-[#191F28] focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
             >
               {TARGET_COMPANIES.map((c) => (
                 <option key={c} value={c}>
@@ -61,53 +62,68 @@ export default function StocksPage() {
             </div>
           </div>
 
-          {/* 실시간 현재가 (한투 KIS) */}
-          {price.isLoading && (
-            <div className="bg-white rounded-2xl p-5 shadow-card border border-border animate-pulse">
-              <div className="h-6 w-32 bg-[#F2F4F6] rounded mb-3" />
-              <div className="h-10 w-48 bg-[#F2F4F6] rounded" />
-            </div>
-          )}
-          {price.error && !price.isLoading && (
-            <div className="bg-[#FFF7ED] border border-[#FED7AA] rounded-2xl p-5">
-              <p className="text-sm font-semibold text-[#92400E]">
-                ⚠️ 현재가를 불러올 수 없습니다
+          {/* 2단 레이아웃 — 좌: 시세·차트 / 우: 종목 분석(sticky) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            {/* 좌측 (2/3) */}
+            <div className="lg:col-span-2 space-y-4">
+              {/* 실시간 현재가 */}
+              {price.isLoading && (
+                <div className="bg-white rounded-2xl p-5 shadow-card border border-border animate-pulse">
+                  <div className="h-6 w-32 bg-[#F2F4F6] rounded mb-3" />
+                  <div className="h-10 w-48 bg-[#F2F4F6] rounded" />
+                </div>
+              )}
+              {price.error && !price.isLoading && (
+                <div className="bg-[#FFF7ED] border border-[#FED7AA] rounded-2xl p-5">
+                  <p className="text-sm font-semibold text-[#92400E]">
+                    ⚠️ 현재가를 불러올 수 없습니다
+                  </p>
+                  <p className="text-xs text-[#92400E] mt-1">{price.error.message}</p>
+                </div>
+              )}
+              {price.data && !price.isLoading && !price.data.found && (
+                <div className="bg-[#FFF7ED] border border-[#FED7AA] rounded-2xl p-5">
+                  <p className="text-sm font-semibold text-[#92400E]">⚠️ {price.data.reason}</p>
+                </div>
+              )}
+              {price.data && price.data.found && (
+                <StockLivePrice data={price.data} isFetching={price.isFetching} />
+              )}
+
+              {/* 과거 차트 */}
+              <div className="bg-white rounded-2xl p-5 shadow-card border border-border">
+                <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider mb-4">
+                  주가 추이 (일봉)
+                </p>
+                {chart.isLoading && (
+                  <div className="h-[240px] bg-[#F2F4F6] rounded-xl animate-pulse" />
+                )}
+                {chart.error && !chart.isLoading && (
+                  <p className="text-xs text-[#92400E]">
+                    차트를 불러올 수 없습니다: {chart.error.message}
+                  </p>
+                )}
+                {chart.data && chart.data.found && (
+                  <StockChart data={chart.data.ohlc} period={period} />
+                )}
+                {chart.data && !chart.data.found && (
+                  <p className="text-xs text-[#92400E]">{chart.data.reason}</p>
+                )}
+              </div>
+
+              <p className="text-xs text-[#9CA3AF]">
+                본 정보는 한투 KIS·KRX 공개 데이터 기반 사실 정보이며 투자 권유·투자 조언이
+                아닙니다. 투자 판단의 책임은 투자자 본인에게 있습니다.
               </p>
-              <p className="text-xs text-[#92400E] mt-1">{price.error.message}</p>
             </div>
-          )}
-          {price.data && !price.isLoading && !price.data.found && (
-            <div className="bg-[#FFF7ED] border border-[#FED7AA] rounded-2xl p-5">
-              <p className="text-sm font-semibold text-[#92400E]">⚠️ {price.data.reason}</p>
-            </div>
-          )}
-          {price.data && price.data.found && (
-            <StockLivePrice data={price.data} isFetching={price.isFetching} />
-          )}
 
-          {/* 과거 차트 (FinanceDataReader) */}
-          <div className="bg-white rounded-2xl p-5 shadow-card border border-border">
-            <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider mb-4">
-              주가 추이 (일봉)
-            </p>
-            {chart.isLoading && (
-              <div className="h-[240px] bg-[#F2F4F6] rounded-xl animate-pulse" />
-            )}
-            {chart.error && !chart.isLoading && (
-              <p className="text-xs text-[#92400E]">차트를 불러올 수 없습니다: {chart.error.message}</p>
-            )}
-            {chart.data && chart.data.found && (
-              <StockChart data={chart.data.ohlc} period={period} />
-            )}
-            {chart.data && !chart.data.found && (
-              <p className="text-xs text-[#92400E]">{chart.data.reason}</p>
-            )}
+            {/* 우측 (1/3) — 종목 분석, 스크롤 따라감 */}
+            <div className="lg:col-span-1">
+              <div className="lg:sticky lg:top-4 space-y-4">
+                <StockAIPanel key={company} company={company} />
+              </div>
+            </div>
           </div>
-
-          <p className="text-xs text-center text-[#9CA3AF]">
-            본 정보는 한투 KIS·KRX 공개 데이터 기반 사실 정보이며 투자 권유·투자 조언이 아닙니다.
-            투자 판단의 책임은 투자자 본인에게 있습니다.
-          </p>
         </div>
       </main>
     </div>
