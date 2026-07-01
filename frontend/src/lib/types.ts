@@ -117,6 +117,49 @@ export interface StockPrice {
 
 export type StockPriceResponse = StockPrice | StockError;
 
+// ── 모의투자 (한투 vps) ─────────────────────────────────────────────────────
+
+export interface Position {
+  ticker: string;
+  name: string;
+  qty: number;
+  avg_price: number;
+  price: number;
+  eval_amount: number;
+  pnl: number;
+  pnl_rate: number;
+}
+
+export interface Balance {
+  found: true;
+  cash: number;
+  eval_amount: number;
+  pnl: number;
+  pnl_rate: number;
+  positions: Position[];
+}
+
+export interface BalanceError {
+  found: false;
+  reason: string;
+}
+
+export type BalanceResponse = Balance | BalanceError;
+
+export interface OrderRequest {
+  company: string;
+  side: "buy" | "sell";
+  qty: number;
+  order_type?: string; // 01=시장가, 00=지정가
+  price?: number;
+}
+
+export interface OrderResult {
+  ok: boolean;
+  order_no?: string | null;
+  message: string;
+}
+
 // ── 재무 추이 타입 ──────────────────────────────────────────────────────────
 
 export interface TrendPoint {

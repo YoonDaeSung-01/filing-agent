@@ -146,6 +146,57 @@ def get_stock_price(company: str) -> dict[str, Any]:
         return {"found": False, "reason": str(exc)}
 
 
+# ── 모의투자 (한투 vps) ──────────────────────────────────────────────────────
+
+@app.get("/paper/balance")
+def get_paper_balance() -> dict[str, Any]:
+    """모의투자 잔고·보유종목·평가손익(사실만). vps."""
+    from filing_agent.platform.market.kis_trading import get_balance
+
+    try:
+        return {"found": True, **get_balance()}
+    except Exception as exc:
+        logger.exception("모의투자 잔고 조회 실패")
+        return {"found": False, "reason": str(exc)}
+
+
+class OrderRequest(BaseModel):
+    company: str
+    side: str  # "buy" | "sell"
+    qty: int
+    order_type: str = "01"  # 01=시장가, 00=지정가
+    price: int = 0
+
+
+@app.post("/paper/order")
+def post_paper_order(req: OrderRequest) -> dict[str, Any]:
+    """모의투자 현금 주문(매수/매도)을 위임한다. vps. 실행 주체는 사용자."""
+    from filing_agent.platform.market.kis_trading import place_order
+
+    if req.side not in ("buy", "sell"):
+        return {"ok": False, "message": f"잘못된 side: {req.side!r}"}
+    if req.qty <= 0:
+        return {"ok": False, "message": "수량은 1 이상이어야 합니다."}
+
+    settings = get_settings()
+    ticker = dart_client.resolve_stock_code(settings.dart_api_key, req.company)
+    if ticker is None:
+        return {"ok": False, "message": f"'{req.company}' 종목코드를 찾을 수 없습니다."}
+
+    try:
+        return place_order(
+            ticker,
+            req.side,  # type: ignore[arg-type]
+            req.qty,
+            order_type=req.order_type,
+            price=req.price,
+            settings=settings,
+        )
+    except Exception as exc:
+        logger.exception("모의투자 주문 실패: %r", req.company)
+        return {"ok": False, "message": str(exc)}
+
+
 # ── GET /financial/trend ─────────────────────────────────────────────────────
 
 @app.get("/financial/trend")

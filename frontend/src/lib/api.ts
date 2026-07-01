@@ -1,6 +1,9 @@
 import type {
   AskRequest,
   AskResponse,
+  BalanceResponse,
+  OrderRequest,
+  OrderResult,
   StockPriceResponse,
   StockResponse,
   TrendResponse,
@@ -42,6 +45,22 @@ export async function fetchStockPrice(company: string): Promise<StockPriceRespon
   const res = await fetch(`${BASE_URL}/stock/price?company=${encodeURIComponent(company)}`);
   if (!res.ok) throw new Error(`현재가 API 오류: ${res.status}`);
   return res.json() as Promise<StockPriceResponse>;
+}
+
+export async function fetchBalance(): Promise<BalanceResponse> {
+  const res = await fetch(`${BASE_URL}/paper/balance`);
+  if (!res.ok) throw new Error(`잔고 API 오류: ${res.status}`);
+  return res.json() as Promise<BalanceResponse>;
+}
+
+export async function placeOrder(req: OrderRequest): Promise<OrderResult> {
+  const res = await fetch(`${BASE_URL}/paper/order`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new Error(`주문 API 오류: ${res.status}`);
+  return res.json() as Promise<OrderResult>;
 }
 
 export async function fetchFinancialTrend(

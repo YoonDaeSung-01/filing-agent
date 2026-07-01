@@ -5,6 +5,8 @@ import { Header } from "@/components/layout/Header";
 import { StockChart } from "@/components/stock/StockChart";
 import { StockLivePrice } from "@/components/stock/StockLivePrice";
 import { StockAIPanel } from "@/components/stock/StockAIPanel";
+import { OrderPanel } from "@/components/stock/OrderPanel";
+import { PortfolioCard } from "@/components/stock/PortfolioCard";
 import { useStock, useStockPrice } from "@/hooks/useStock";
 import { TARGET_COMPANIES } from "@/lib/constants";
 
@@ -111,15 +113,22 @@ export default function StocksPage() {
                 )}
               </div>
 
+              {/* 내 모의투자 (포트폴리오) */}
+              <PortfolioCard />
+
               <p className="text-xs text-[#9CA3AF]">
                 본 정보는 한투 KIS·KRX 공개 데이터 기반 사실 정보이며 투자 권유·투자 조언이
                 아닙니다. 투자 판단의 책임은 투자자 본인에게 있습니다.
               </p>
             </div>
 
-            {/* 우측 (1/3) — 종목 분석, 스크롤 따라감 */}
+            {/* 우측 (1/3) — 주문 + 종목 분석, 스크롤 따라감 */}
             <div className="lg:col-span-1">
               <div className="lg:sticky lg:top-4 space-y-4">
+                <OrderPanel
+                  company={company}
+                  currentPrice={price.data?.found ? price.data.price : undefined}
+                />
                 <StockAIPanel key={company} company={company} />
               </div>
             </div>
